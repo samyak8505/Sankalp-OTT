@@ -14,8 +14,8 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { useDispatch } from 'react-redux';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
 
 import DramaDetailsSheetConnected from '../components/DramaDetailsSheetConnected';
 import { ROUTES } from '../constants/routes';
@@ -59,6 +59,7 @@ const DramaCard = ({ item, onPress }) => (
 
 export default function PopularScreen() {
   const dispatch = useDispatch();
+  const accessToken = useSelector((state) => state.auth?.accessToken);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -135,11 +136,35 @@ export default function PopularScreen() {
     return () => { cancelled = true; };
   }, [activeTab, searchQuery]);
 
+  // Close sheet when screen loses focus to prevent cross-screen state bleed
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (!isFocused) {
+      // Always close sheet when navigating away
+      setSheetVisible(false);
+      setSelected(null);
+      setShowDetails(null);
+      setShowDetailsError(null);
+    } else {
+      // Always ensure sheet is closed when returning to this screen
+      setSheetVisible(false);
+      setSelected(null);
+      setShowDetails(null);
+      setShowDetailsError(null);
+    }
+  }, [isFocused]);
+
   const fetchShowDetails = async (showId, fromEp = 1) => {
     setShowDetailsLoading(true);
     setShowDetailsError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/feed/show/${showId}?from_ep=${fromEp}&limit=30`);
+      const headers = { 'Content-Type': 'application/json' };
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/feed/show/${showId}?from_ep=${fromEp}&limit=30`, {
+        headers,
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `Failed to load episodes: ${res.status}`);
       setShowDetails(data);
@@ -260,7 +285,7 @@ export default function PopularScreen() {
       )}
 
       <DramaDetailsSheetConnected
-        visible={sheetVisible}
+        visible={isFocused && sheetVisible}
         item={selected}
         details={selected?.show_id === showDetails?.show_id ? showDetails : null}
         loading={showDetailsLoading}
