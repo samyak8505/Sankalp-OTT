@@ -199,22 +199,25 @@ model ShowTag {
 }
 
 model Episode {
-  id                 String   @id @default(uuid()) @db.Uuid
-  show_id            String   @db.Uuid
+  id                 String          @id @default(uuid()) @db.Uuid
+  show_id            String          @db.Uuid
   episode_num        Int
-  title              String   @db.VarChar(255)
-  is_free            Boolean  @default(false)
-  coin_cost          Int      @default(0)
-  hls_master_url     String?  @db.VarChar(500)
-  duration_sec       Int      @default(0)
-  status             String   @default("processing") @db.VarChar(20)
-  total_profiles     Int      @default(4)
-  completed_profiles Int      @default(0)
-  created_at         DateTime @default(now())
+  title              String          @db.VarChar(255)
+  is_free            Boolean         @default(false)
+  coin_cost          Int             @default(0)
+  hls_master_url     String?         @db.VarChar(500)
+  duration_sec       Int             @default(0)
+  status             String          @default("processing") @db.VarChar(20)
+  total_profiles     Int             @default(4)
+  completed_profiles Int             @default(0)
+  created_at         DateTime        @default(now())
 
-  show           Show            @relation(fields: [show_id], references: [id], onDelete: Cascade)
-  watch_history  WatchHistory[]
-  episode_access EpisodeAccess[]
+  show               Show            @relation(fields: [show_id], references: [id], onDelete: Cascade)
+  watch_history      WatchHistory[]
+  episode_access     EpisodeAccess[]
+  
+  // This is the missing line that fixes the error:
+  bookmarks          Bookmark[]      
 
   @@index([show_id, episode_num], name: "idx_episodes_show")
   @@map("episodes")
@@ -333,17 +336,21 @@ model CollectionShow {
 }
 
 model Bookmark {
-  id         String   @id @default(uuid()) @db.Uuid
-  user_id    String   @db.Uuid
-  show_id    String   @db.Uuid
-  created_at DateTime @default(now())
+  id           String   @id @default(uuid()) @db.Uuid
+  user_id      String   @db.Uuid
+  show_id      String   @db.Uuid
+  episode_id   String?  @db.Uuid
+  progress_sec Int      @default(0)
+  created_at   DateTime @default(now())
 
-  user User @relation(fields: [user_id], references: [id])
-  show Show @relation(fields: [show_id], references: [id])
+  user    User    @relation(fields: [user_id], references: [id])
+  show    Show    @relation(fields: [show_id], references: [id])
+  episode Episode? @relation(fields: [episode_id], references: [id])
 
   @@unique([user_id, show_id], name: "idx_bm_user_show")
   @@map("bookmarks")
 }
+
 
 model Playlist {
   id         String   @id @default(uuid()) @db.Uuid
