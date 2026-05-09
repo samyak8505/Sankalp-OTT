@@ -24,7 +24,6 @@ import { styles } from './styles';
 import { shortVideoTheme } from './theme';
 import useShortVideoPlayback from './useShortVideoPlayback';
 import { formatCount } from './utils';
-import { SCREEN_HEIGHT } from './constants'; // ← ADDED: needed for fallback height
 import { ROUTES } from '../../constants/routes';
 
 function DefaultTopOverlay({ top, style }) {
@@ -43,27 +42,18 @@ export default function ShortVideoReelItem({
   onOpenDetails,
   renderTopOverlay,
   streamBase = '',
-  containerHeight,  // ← ADDED: passed from ForYouScreen; undefined in ShowPlayerScreen
+  itemHeight,
 }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const accessToken = useSelector((state) => state.auth?.accessToken);
   
-  // ── Safely get tab bar height (throws when there is no tab bar) ───────────
   let tabBarHeight = 0;
   try {
     tabBarHeight = useBottomTabBarHeight();
   } catch {
     tabBarHeight = 0;
   }
-
-  // ── ADDED: use passed-in height (ForYouScreen) or full screen (ShowPlayer) ─
-  // When containerHeight is explicitly provided, use it as-is.
-  // When not provided (ShowPlayerScreen has no tab bar), fall back to
-  // SCREEN_HEIGHT minus whatever tabBarHeight resolved to (0 there).
-  const itemHeight = containerHeight ?? (SCREEN_HEIGHT - tabBarHeight);
-  // ──────────────────────────────────────────────────────────────────────────
-
   const [saved, setSaved] = useState(false);
 
   const isLocked = item.is_locked;
@@ -106,8 +96,7 @@ export default function ShortVideoReelItem({
     : <DefaultTopOverlay top={insets.top + 10} style={styles.topSearch} />;
 
   return (
-    // ← CHANGED: override only the height, keep every other reelContainer style intact
-    <View style={[styles.reelContainer, { height: itemHeight }]}>
+    <View style={[styles.reelContainer, itemHeight ? { height: itemHeight } : null]}>
       {/* Thumbnail / blurred placeholder – shown until first frame is ready */}
       {item.thumbnail_url ? (
         <Image

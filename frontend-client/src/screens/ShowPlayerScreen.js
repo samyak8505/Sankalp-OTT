@@ -5,7 +5,6 @@ import {
   Pressable,
   StatusBar,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,6 +37,14 @@ export default function ShowPlayerScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const flatListRef = useRef(null);
 
+  // Use actual rendered height instead of SCREEN_HEIGHT, which can include
+  // the tab bar height on some devices and cause the next video to peek through.
+  const [itemHeight, setItemHeight] = useState(SCREEN_HEIGHT);
+  const onScreenLayout = useCallback((e) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) setItemHeight(h);
+  }, []);
+
   const episodes = useSelector(selectShowPlayerEpisodes);
   const loading = useSelector(selectShowPlayerLoading);
   const hasMore = useSelector(selectShowPlayerHasMore);
@@ -47,12 +54,6 @@ export default function ShowPlayerScreen({ navigation }) {
 
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [initialScrollDone, setInitialScrollDone] = useState(false);
-
-  // Full visible height: SCREEN_HEIGHT (window height) minus both top and bottom
-  // safe area insets. On translucent-StatusBar screens the window height includes
-  // the status bar area, so we remove insets.top too — otherwise each card is
-  // taller than the visible viewport and the next video bleeds in at the bottom.
-  const ITEM_HEIGHT = SCREEN_HEIGHT;
 
   // Scroll to starting episode once the list has rendered
   useEffect(() => {
@@ -74,8 +75,7 @@ export default function ShowPlayerScreen({ navigation }) {
 
   const onMomentumScrollEnd = useCallback(
     (e) => {
-      // ← CHANGED: use ITEM_HEIGHT instead of SCREEN_HEIGHT
-      const newIndex = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
+      const newIndex = Math.round(e.nativeEvent.contentOffset.y / itemHeight);
       setCurrentIndex(newIndex);
 
       // Prefetch next page when nearing the end
@@ -91,7 +91,7 @@ export default function ShowPlayerScreen({ navigation }) {
         }
       }
     },
-    [dispatch, hasMore, episodes.length, loading, loadedUpTo, showId, ITEM_HEIGHT]
+    [dispatch, hasMore, episodes.length, loading, loadedUpTo, showId, itemHeight]
   );
 
   const handleScrollToIndexFailed = useCallback((info) => {
@@ -119,7 +119,7 @@ export default function ShowPlayerScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={styles.screen} onLayout={onScreenLayout}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       {/* Back button — floats above the video */}
@@ -141,13 +141,13 @@ export default function ShowPlayerScreen({ navigation }) {
             isActive={index === currentIndex && isFocused}
             isFocused={isFocused}
             streamBase=""
-            containerHeight={ITEM_HEIGHT}  // ← ADDED: consistent with ForYouScreen
+            itemHeight={itemHeight}
             // No onOpenDetails / onWatchAll needed inside the player itself
             renderTopOverlay={() => null}
           />
         )}
         pagingEnabled
-        snapToInterval={ITEM_HEIGHT}        // ← CHANGED
+        snapToInterval={itemHeight}
         snapToAlignment="start"
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
@@ -158,13 +158,13 @@ export default function ShowPlayerScreen({ navigation }) {
         maxToRenderPerBatch={2}
         windowSize={3}
         getItemLayout={(_, index) => ({
-          length: ITEM_HEIGHT,              // ← CHANGED
-          offset: ITEM_HEIGHT * index,      // ← CHANGED
+          length: itemHeight,
+          offset: itemHeight * index,
           index,
         })}
         ListFooterComponent={
           loading ? (
-            <View style={[styles.footer, { height: ITEM_HEIGHT }]}>
+            <View style={[styles.footer, { height: itemHeight }]}>
               <ActivityIndicator size="small" color={shortVideoTheme.crimson} />
             </View>
           ) : null

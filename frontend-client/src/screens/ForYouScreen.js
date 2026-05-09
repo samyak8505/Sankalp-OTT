@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'; // ← ADDED
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -52,11 +51,6 @@ export default function ForYouScreen() {
   const showModeError = useSelector(selectShowModeError);
   const isFocused = useIsFocused();
 
-  // ── ADDED: subtract the tab bar so videos don't bleed behind it ──────────
-  const tabBarHeight = useBottomTabBarHeight();
-  const ITEM_HEIGHT = SCREEN_HEIGHT - tabBarHeight;
-  // ─────────────────────────────────────────────────────────────────────────
-
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [selectedDrama, setSelectedDrama] = useState(null);
@@ -67,14 +61,13 @@ export default function ForYouScreen() {
   }, [dispatch]);
 
   const onMomentumScrollEnd = useCallback((e) => {
-    // ← CHANGED: use ITEM_HEIGHT instead of SCREEN_HEIGHT
-    const newIndex = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
+    const newIndex = Math.round(e.nativeEvent.contentOffset.y / SCREEN_HEIGHT);
     setCurrentIndex(newIndex);
 
     if (hasMore && newIndex >= items.length - DEFAULT_PREFETCH_THRESHOLD) {
       dispatch(fetchForYouFeed({ offset }));
     }
-  }, [dispatch, hasMore, items.length, offset, ITEM_HEIGHT]);
+  }, [dispatch, hasMore, items.length, offset]);
 
   const openDramaDetails = useCallback((item, initialTab = 'synopsis') => {
     setSelectedDrama(item);
@@ -131,8 +124,7 @@ export default function ForYouScreen() {
       })
     );
 
-    // ← CHANGED: pass tabBarHeight so ShowPlayerScreen uses identical ITEM_HEIGHT
-    navigation.navigate(ROUTES.SHOW_PLAYER, { tabBarHeight });
+    navigation.navigate(ROUTES.SHOW_PLAYER);
   }, [dispatch, navigation, selectedDrama, showMode]);
 
   const handleRefresh = useCallback(() => {
@@ -177,11 +169,10 @@ export default function ForYouScreen() {
             onOpenDetails={handleOpenSynopsis}
             onWatchAll={handleOpenEpisodes}
             streamBase={API_BASE_URL}
-            containerHeight={ITEM_HEIGHT} // ← ADDED: keeps video above tab bar
           />
         )}
         pagingEnabled
-        snapToInterval={ITEM_HEIGHT}   // ← CHANGED
+        snapToInterval={SCREEN_HEIGHT}
         snapToAlignment="start"
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
@@ -191,8 +182,8 @@ export default function ForYouScreen() {
         maxToRenderPerBatch={2}
         windowSize={3}
         getItemLayout={(_, index) => ({
-          length: ITEM_HEIGHT,          // ← CHANGED
-          offset: ITEM_HEIGHT * index,  // ← CHANGED
+          length: SCREEN_HEIGHT,
+          offset: SCREEN_HEIGHT * index,
           index,
         })}
         onRefresh={handleRefresh}
