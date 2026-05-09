@@ -48,6 +48,12 @@ export default function ShowPlayerScreen({ navigation }) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [initialScrollDone, setInitialScrollDone] = useState(false);
 
+  // Full visible height: SCREEN_HEIGHT (window height) minus both top and bottom
+  // safe area insets. On translucent-StatusBar screens the window height includes
+  // the status bar area, so we remove insets.top too — otherwise each card is
+  // taller than the visible viewport and the next video bleeds in at the bottom.
+  const ITEM_HEIGHT = SCREEN_HEIGHT;
+
   // Scroll to starting episode once the list has rendered
   useEffect(() => {
     if (!initialScrollDone && episodes.length > 0 && startIndex > 0) {
@@ -68,7 +74,8 @@ export default function ShowPlayerScreen({ navigation }) {
 
   const onMomentumScrollEnd = useCallback(
     (e) => {
-      const newIndex = Math.round(e.nativeEvent.contentOffset.y / SCREEN_HEIGHT);
+      // ← CHANGED: use ITEM_HEIGHT instead of SCREEN_HEIGHT
+      const newIndex = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
       setCurrentIndex(newIndex);
 
       // Prefetch next page when nearing the end
@@ -84,7 +91,7 @@ export default function ShowPlayerScreen({ navigation }) {
         }
       }
     },
-    [dispatch, hasMore, episodes.length, loading, loadedUpTo, showId]
+    [dispatch, hasMore, episodes.length, loading, loadedUpTo, showId, ITEM_HEIGHT]
   );
 
   const handleScrollToIndexFailed = useCallback((info) => {
@@ -134,12 +141,13 @@ export default function ShowPlayerScreen({ navigation }) {
             isActive={index === currentIndex && isFocused}
             isFocused={isFocused}
             streamBase=""
+            containerHeight={ITEM_HEIGHT}  // ← ADDED: consistent with ForYouScreen
             // No onOpenDetails / onWatchAll needed inside the player itself
             renderTopOverlay={() => null}
           />
         )}
         pagingEnabled
-        snapToInterval={SCREEN_HEIGHT}
+        snapToInterval={ITEM_HEIGHT}        // ← CHANGED
         snapToAlignment="start"
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
@@ -150,13 +158,13 @@ export default function ShowPlayerScreen({ navigation }) {
         maxToRenderPerBatch={2}
         windowSize={3}
         getItemLayout={(_, index) => ({
-          length: SCREEN_HEIGHT,
-          offset: SCREEN_HEIGHT * index,
+          length: ITEM_HEIGHT,              // ← CHANGED
+          offset: ITEM_HEIGHT * index,      // ← CHANGED
           index,
         })}
         ListFooterComponent={
           loading ? (
-            <View style={styles.footer}>
+            <View style={[styles.footer, { height: ITEM_HEIGHT }]}>
               <ActivityIndicator size="small" color={shortVideoTheme.crimson} />
             </View>
           ) : null
@@ -189,7 +197,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   footer: {
-    height: SCREEN_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
   },
