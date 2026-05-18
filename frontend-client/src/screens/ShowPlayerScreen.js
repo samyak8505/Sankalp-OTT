@@ -9,8 +9,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
+
+import {
+  setForYouDramaSheetSession,
+  setForYouReopenSheetAfterPlayer,
+} from '../redux/slices/reelsSlice';
 
 import {
   DEFAULT_PREFETCH_THRESHOLD,
@@ -35,7 +40,9 @@ const PLAYER_PAGE_SIZE = 30;
 
 export default function ShowPlayerScreen({ navigation }) {
   const dispatch = useDispatch();
+  const route = useRoute();
   const isFocused = useIsFocused();
+  const fromForYou = !!route.params?.fromForYou;
   const insets = useSafeAreaInsets();
   const flatListRef = useRef(null);
 
@@ -144,6 +151,23 @@ export default function ShowPlayerScreen({ navigation }) {
     navigation.goBack();
   }, [dispatch, navigation]);
 
+  const returnToForYouDramaSheet = useCallback(
+    (reelItem, initialTab) => {
+      dispatch(setForYouDramaSheetSession({ item: reelItem, initialTab }));
+      dispatch(clearShowPlayer());
+      navigation.goBack();
+    },
+    [dispatch, navigation]
+  );
+
+  useEffect(() => {
+    if (!fromForYou) return undefined;
+    const sub = navigation.addListener('beforeRemove', () => {
+      dispatch(setForYouReopenSheetAfterPlayer(true));
+    });
+    return sub;
+  }, [navigation, fromForYou, dispatch]);
+
   if (episodes.length === 0) {
     return (
       <View style={styles.centered}>
@@ -177,6 +201,7 @@ export default function ShowPlayerScreen({ navigation }) {
             streamBase=""
             itemHeight={itemHeight}
             renderTopOverlay={() => null}
+            onReturnToForYouDrama={fromForYou ? returnToForYouDramaSheet : undefined}
             // Seek to saved progress on first render of the starting episode
             initialSeekSec={
               index === startIndex && !hasSeenRef.current
@@ -194,6 +219,8 @@ export default function ShowPlayerScreen({ navigation }) {
                 ? (progressSec) => recordWatchHistory(item, progressSec)
                 : null
             }
+            showPlaybackSpeedControl
+            showOttOverlayControls
           />
         )}
         pagingEnabled

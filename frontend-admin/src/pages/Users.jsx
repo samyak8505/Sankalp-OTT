@@ -1,54 +1,10 @@
-import { useState } from 'react'
-import { Search, Eye, Coins, Ban, UserCheck, Download } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Eye, Coins, Ban, UserCheck, Download, AlertCircle } from 'lucide-react'
 import Modal, { ModalSection, FormGroup } from '../components/ui/Modal.jsx'
 import { ConfirmDialog } from '../components/ui/Controls.jsx'
+import { usersApi } from '../services/api.js'
 
-const initUsers = [
-  { id:'U001', name:'Priya Raj',  email:'priya@gmail.com',   mobile:'+91 98765 43210', role:'member', coins:420,  joined:'Jan 12, 2025', status:'Active',
-    watchHistory:[{drama:'Secret Marriage',ep:4,date:'Apr 3'},{drama:"CEO's Revenge",ep:2,date:'Apr 2'}],
-    activity:[{action:'Login',device:'Android',date:'Apr 3, 10:22'},{action:'Top-up ₵500',date:'Apr 3, 12:10'},{action:'Unlock Episode',date:'Apr 3, 12:11'}],
-    referrals:3, coinHistory:[{type:'Top-up',amount:'+₵500',date:'Apr 3'},{type:'Daily gift',amount:'+₵50',date:'Apr 3'},{type:'Unlock',amount:'-₵20',date:'Apr 3'}],
-    subExpiry:'May 12, 2025',
-  },
-  { id:'U002', name:'Arjun M',    email:'arjun@outlook.com', mobile:'+91 87654 32109', role:'member',  coins:1280, joined:'Nov 3, 2024',  status:'Active',
-    watchHistory:[{drama:'Twin Flames',ep:8,date:'Apr 2'},{drama:'Lost in Seoul',ep:1,date:'Apr 1'}],
-    activity:[{action:'Login',device:'iOS',date:'Apr 2, 09:15'}],
-    referrals:7, coinHistory:[{type:'Referral bonus',amount:'+₵100',date:'Apr 1'},{type:'Unlock',amount:'-₵20',date:'Apr 2'}],
-    subExpiry:'Nov 3, 2025',
-  },
-  { id:'U003', name:'Sneha K',    email:'sneha@yahoo.com',   mobile:'+91 76543 21098', role:'free',    coins:50,   joined:'Mar 5, 2025',  status:'Active',
-    watchHistory:[{drama:'Campus Crush',ep:1,date:'Apr 3'}],
-    activity:[{action:'Login',device:'Web',date:'Apr 3, 14:00'}],
-    referrals:0, coinHistory:[{type:'Daily gift',amount:'+₵10',date:'Apr 3'}],
-    subExpiry:'—',
-  },
-  { id:'U004', name:'Ravi V',     email:'ravi@hotmail.com',  mobile:'+91 65432 10987', role:'member',  coins:80,   joined:'Feb 18, 2025', status:'Blocked',
-    watchHistory:[],
-    activity:[{action:'Login failed',device:'Android',date:'Mar 20, 08:00'},{action:'Blocked by admin',date:'Mar 21'}],
-    referrals:1, coinHistory:[],
-    subExpiry:'Expired',
-  },
-  { id:'U005', name:'Meena S',    email:'meena@gmail.com',   mobile:'+91 54321 09876', role:'member', coins:210,  joined:'Dec 22, 2024', status:'Active',
-    watchHistory:[{drama:'Secret Marriage',ep:1,date:'Apr 2'}],
-    activity:[{action:'Login',device:'iOS',date:'Apr 2, 20:30'}],
-    referrals:2, coinHistory:[{type:'Top-up',amount:'+₵100',date:'Apr 1'}],
-    subExpiry:'Jan 22, 2025',
-  },
-  { id:'U006', name:'Kiran P',    email:'kiran@outlook.com', mobile:'+91 43210 98765', role:'free',    coins:10,   joined:'Apr 1, 2025',  status:'Active',
-    watchHistory:[], activity:[], referrals:0, coinHistory:[{type:'Daily gift',amount:'+₵10',date:'Apr 3'}], subExpiry:'—',
-  },
-  { id:'U007', name:'Divya T',    email:'divya@gmail.com',   mobile:'+91 32109 87654', role:'member',  coins:2100, joined:'Oct 14, 2024', status:'Active',
-    watchHistory:[{drama:"CEO's Revenge",ep:2,date:'Apr 3'},{drama:'Twin Flames',ep:5,date:'Apr 3'}],
-    activity:[{action:'Login',device:'Android',date:'Apr 3, 08:00'},{action:'Top-up ₵2000',date:'Apr 3, 09:00'}],
-    referrals:12, coinHistory:[{type:'Top-up',amount:'+₵2000',date:'Apr 3'},{type:'Unlock',amount:'-₵20',date:'Apr 3'}],
-    subExpiry:'Oct 14, 2025',
-  },
-  { id:'U008', name:'Suresh R',   email:'suresh@yahoo.com',  mobile:'+91 21098 76543', role:'member',  coins:30,   joined:'Mar 28, 2025', status:'Blocked',
-    watchHistory:[], activity:[{action:'Blocked',date:'Mar 29'}], referrals:0, coinHistory:[], subExpiry:'Expired',
-  },
-]
-
-const roleBadge = { free:'badge-amber', member:'badge-purple', admin:'badge-red', sub_admin:'badge-blue' }
+const roleBadge = { free:'badge-amber', member:'badge-purple', admin:'badge-red', sub_admin:'badge-blue', user:'badge-gray' }
 
 function UserProfileModal({ open, onClose, user }) {
   const [tab, setTab] = useState('profile')
@@ -198,25 +154,83 @@ function CoinsModal({ open, onClose, user, onUpdate }) {
 }
 
 export default function Users() {
-  const [users, setUsers] = useState(initUsers)
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('All')
   const [modal, setModal] = useState(null)
   const [selected, setSelected] = useState(null)
 
+  // Fetch users on mount
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await usersApi.getAll()
+      console.log('API Response:', response)
+      setUsers(response.data.data.users || response.data.users || [])
+    } catch (err) {
+      console.error('Failed to load users:', err)
+      setError(err.response?.data?.message || 'Failed to load users')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const filtered = users.filter(u => {
-    const m = u.name.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()) || u.id.toLowerCase().includes(q.toLowerCase()) || u.mobile.includes(q)
+    const m = u.name.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()) || u.id.toLowerCase().includes(q.toLowerCase())
     const f = filter==='All' || (filter==='Blocked'?u.status==='Blocked':filter==='Member'?u.role==='member':filter==='Free'?u.role==='free':filter==='Admin'?(u.role==='admin'||u.role==='sub_admin'):true)
     return m && f
   })
 
-  const toggleBlock = id => setUsers(p => p.map(u => u.id===id ? {...u, status:u.status==='Blocked'?'Active':'Blocked'} : u))
-  const adjustCoins = (id, delta) => setUsers(p => p.map(u => u.id===id ? {...u, coins:Math.max(0,u.coins+delta)} : u))
+  const toggleBlock = async (id, currentStatus) => {
+    try {
+      await usersApi.toggleStatus(id)
+      // Update local state
+      setUsers(p => p.map(u => u.id===id ? {...u, status:currentStatus==='Blocked'?'Active':'Blocked'} : u))
+    } catch (err) {
+      alert('Failed to update user status')
+      console.error(err)
+    }
+  }
+
+  const adjustCoins = async (id, delta) => {
+    try {
+      console.log('Adjusting coins for user', id, 'by', delta)
+      const response = await usersApi.adjustCoins(id, delta, 'Admin adjustment')
+      console.log('Adjust coins response:', response)
+      // Update local state
+      setUsers(p => p.map(u => u.id===id ? {...u, coins:Math.max(0,u.coins+delta)} : u))
+    } catch (err) {
+      console.error('Failed to adjust coins:', err)
+      alert('Failed to adjust coins: ' + (err.response?.data?.message || err.message))
+    }
+  }
 
   const open = (m, u=null) => { setModal(m); setSelected(u) }
 
   return (
     <div className="page-enter">
+      {error && (
+        <div style={{ background:'rgba(239, 68, 68, 0.1)', border:'1px solid #ef4444', borderRadius:8, padding:12, marginBottom:16, display:'flex', gap:8, alignItems:'center', color:'#ef4444', fontSize:13 }}>
+          <AlertCircle size={16}/>
+          <span>{error}</span>
+          <button onClick={loadUsers} style={{ marginLeft:'auto', background:'none', border:'none', color:'#ef4444', cursor:'pointer', textDecoration:'underline' }}>Retry</button>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ textAlign:'center', padding:'60px 20px', color:'var(--text3)' }}>
+          <div style={{ marginBottom:16 }}>Loading users...</div>
+          <div style={{ display:'inline-block', width:32, height:32, border:'3px solid var(--border)', borderTopColor:'var(--accent)', borderRadius:'50%', animation:'spin 1s linear infinite' }}></div>
+        </div>
+      ) : (
+        <>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
         <div>
           <div style={{ fontWeight:600 }}>{users.length} registered users</div>
@@ -264,7 +278,7 @@ export default function Users() {
                     <div style={{ display:'flex', gap:5 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => open('profile', u)}><Eye size={11}/> View</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => open('coins', u)}><Coins size={11}/> Coins</button>
-                      <button className={`btn btn-sm ${u.status==='Blocked'?'btn-primary':'btn-danger'}`} onClick={() => toggleBlock(u.id)}>
+                      <button className={`btn btn-sm ${u.status==='Blocked'?'btn-primary':'btn-danger'}`} onClick={() => toggleBlock(u.id, u.status)}>
                         {u.status==='Blocked'?<><UserCheck size={11}/> Unblock</>:<><Ban size={11}/> Block</>}
                       </button>
                     </div>
@@ -278,6 +292,8 @@ export default function Users() {
 
       <UserProfileModal open={modal==='profile'} onClose={() => setModal(null)} user={selected}/>
       <CoinsModal open={modal==='coins'} onClose={() => setModal(null)} user={selected} onUpdate={adjustCoins}/>
+        </>
+      )}
     </div>
   )
 }

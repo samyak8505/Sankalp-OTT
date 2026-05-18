@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 
 import DramaDetailsSheetConnected from '../components/DramaDetailsSheetConnected';
@@ -62,6 +62,7 @@ export default function PopularScreen() {
   const accessToken = useSelector((state) => state.auth?.accessToken);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const [searchQuery, setSearchQuery] = useState('');
   const [selected, setSelected] = useState(null);
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -73,6 +74,8 @@ export default function PopularScreen() {
   const [showDetails, setShowDetails] = useState(null);
   const [showDetailsLoading, setShowDetailsLoading] = useState(false);
   const [showDetailsError, setShowDetailsError] = useState(null);
+  const returnFromPlayerRef = useRef(false);
+  const [dramaSheetKey, setDramaSheetKey] = useState(0);
 
   // 1. Load Categories
   useEffect(() => {
@@ -136,23 +139,15 @@ export default function PopularScreen() {
     return () => { cancelled = true; };
   }, [activeTab, searchQuery]);
 
-  // Close sheet when screen loses focus to prevent cross-screen state bleed
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    if (!isFocused) {
-      // Always close sheet when navigating away
-      setSheetVisible(false);
-      setSelected(null);
-      setShowDetails(null);
-      setShowDetailsError(null);
-    } else {
-      // Always ensure sheet is closed when returning to this screen
-      setSheetVisible(false);
-      setSelected(null);
-      setShowDetails(null);
-      setShowDetailsError(null);
-    }
-  }, [isFocused]);
+  // Re-open drama sheet after returning from full-screen player (do not reset sheet on every tab focus)
+  useFocusEffect(
+    useCallback(() => {
+      if (returnFromPlayerRef.current && selected && showDetails) {
+        returnFromPlayerRef.current = false;
+        setSheetVisible(true);
+      }
+    }, [selected, showDetails])
+  );
 
   const fetchShowDetails = async (showId, fromEp = 1) => {
     setShowDetailsLoading(true);
@@ -177,6 +172,7 @@ export default function PopularScreen() {
   };
 
   const openDetails = (item, initialTab = 'synopsis') => {
+    setDramaSheetKey((k) => k + 1);
     const selectedItem = {
       ...item,
       show_id: item.id,
@@ -199,6 +195,7 @@ export default function PopularScreen() {
     if (!selected || !showDetails) return;
     if (episode.status !== 'ready' && !episode.is_locked) return;
 
+    returnFromPlayerRef.current = true;
     dispatch(
       initShowPlayer({
         showId: showDetails.show_id,
@@ -216,6 +213,7 @@ export default function PopularScreen() {
   };
 
   const handleCloseSheet = () => {
+    returnFromPlayerRef.current = false;
     setSheetVisible(false);
     setSelected(null);
     setShowDetails(null);
@@ -285,6 +283,7 @@ export default function PopularScreen() {
       )}
 
       <DramaDetailsSheetConnected
+        key={`drama-${dramaSheetKey}-${selected?.show_id ?? 'none'}`}
         visible={isFocused && sheetVisible}
         item={selected}
         details={selected?.show_id === showDetails?.show_id ? showDetails : null}

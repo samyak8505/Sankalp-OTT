@@ -10,6 +10,7 @@ import { checkDatabaseHealth } from './config/db.js';
 import { errorHandler } from './middleware/error.middleware.js';
 import { ApiResponse } from './utils/ApiResponse.js';
 import authRouter from './modules/auth/auth.routes.js';
+import adminRouter from './modules/admin/admin.routes.js';
 
 // added from admin_ui_v2 (non-conflicting)
 import contentRouter from './modules/content/content.router.js';
@@ -126,6 +127,7 @@ app.get("/test", (req, res) => {
 // ============= API ROUTES =============
 
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/admin', adminRouter);
 app.use('/api/content', contentRouter);
 app.use('/api/feed', feedRouter);
 app.use('/api/media', mediaRouter);

@@ -128,3 +128,12 @@ export const mediaApi = {
 };
 
 export default api;
+
+// ── Admin Users ──
+export const usersApi = {
+  getAll: () => api.get('/v1/admin/users'),
+  getProfile: (userId) => api.get(`/v1/admin/users/${userId}/profile`),
+  toggleStatus: (userId) => api.patch(`/v1/admin/users/${userId}/status`),
+  adjustCoins: (userId, amount, reason) =>
+    api.patch(`/v1/admin/users/${userId}/coins`, { amount, reason }),
+};
