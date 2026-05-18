@@ -5,7 +5,7 @@ import { SCREEN_WIDTH } from './constants';
 import { styles } from './styles';
 import { formatTime } from './utils';
 
-export default function ProgressBar({ currentTime, duration, onSeek }) {
+export default function ProgressBar({ currentTime, duration, onSeek, format = 'remaining' }) {
   const progress = duration > 0 ? currentTime / duration : 0;
   const remaining = duration - currentTime;
 
@@ -31,7 +31,11 @@ export default function ProgressBar({ currentTime, duration, onSeek }) {
 
       <View style={styles.timeRow}>
         <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-        <Text style={styles.timeText}>-{formatTime(remaining)}</Text>
+        {format === 'elapsedTotal' ? (
+          <Text style={styles.timeText}>{formatTime(duration)}</Text>
+        ) : (
+          <Text style={styles.timeText}>-{formatTime(remaining)}</Text>
+        )}
       </View>
     </View>
   );

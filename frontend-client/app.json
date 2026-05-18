@@ -1,23 +1,20 @@
 {
   "expo": {
-    "name": "7k",
+    "name": "7K",
     "slug": "7k",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
-
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.samyak_8505.x7K"
     },
-
     "android": {
       "package": "com.samyak_8505.x7K",
       "adaptiveIcon": {
@@ -28,11 +25,9 @@
         "INTERNET"
       ]
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "plugins": [
       "expo-dev-client",
       "expo-secure-store",
@@ -55,11 +50,11 @@
         }
       ]
     ],
-
     "extra": {
       "eas": {
-        "projectId": "5dd61ee9-e865-46d2-bda6-9064e3107aa3"
+        "projectId": "5e913204-2640-4352-98c9-be8b11d58149"
       }
-    }
+    },
+    "owner": "paras10"
   }
 }

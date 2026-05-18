@@ -9,8 +9,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
+
+import {
+  setForYouDramaSheetSession,
+  setForYouReopenSheetAfterPlayer,
+  setHomeDramaSheetSession,
+  setHomeReopenSheetAfterPlayer,
+} from '../redux/slices/reelsSlice';
 
 import {
   DEFAULT_PREFETCH_THRESHOLD,
@@ -33,9 +40,30 @@ import { upsertWatchHistory } from '../redux/slices/myListSlice';
 
 const PLAYER_PAGE_SIZE = 30;
 
+function reelItemToHomeSelected(reelItem) {
+  return {
+    id: reelItem.show_id,
+    show_id: reelItem.show_id,
+    title: reelItem.show_title,
+    show_title: reelItem.show_title,
+    thumbnail_url: reelItem.thumbnail_url,
+    category: reelItem.category,
+    category_name: reelItem.category,
+    episode_count: reelItem.total_episodes,
+    total_episodes: reelItem.total_episodes,
+    synopsis: reelItem.synopsis,
+    tags: reelItem.tags,
+    episode_num: reelItem.episode_num,
+  };
+}
+
 export default function ShowPlayerScreen({ navigation }) {
   const dispatch = useDispatch();
+  const route = useRoute();
   const isFocused = useIsFocused();
+  const fromForYou = !!route.params?.fromForYou;
+  const fromHome = !!route.params?.fromHome;
+  const dramaSheetSource = fromForYou ? 'forYou' : fromHome ? 'home' : null;
   const insets = useSafeAreaInsets();
   const flatListRef = useRef(null);
 
@@ -144,6 +172,36 @@ export default function ShowPlayerScreen({ navigation }) {
     navigation.goBack();
   }, [dispatch, navigation]);
 
+  const returnToDramaSheet = useCallback(
+    (reelItem, initialTab) => {
+      if (dramaSheetSource === 'forYou') {
+        dispatch(setForYouDramaSheetSession({ item: reelItem, initialTab }));
+      } else if (dramaSheetSource === 'home') {
+        dispatch(
+          setHomeDramaSheetSession({
+            selectedItem: reelItemToHomeSelected(reelItem),
+            initialTab,
+          })
+        );
+      }
+      dispatch(clearShowPlayer());
+      navigation.goBack();
+    },
+    [dispatch, navigation, dramaSheetSource]
+  );
+
+  useEffect(() => {
+    if (!dramaSheetSource) return undefined;
+    const sub = navigation.addListener('beforeRemove', () => {
+      if (dramaSheetSource === 'forYou') {
+        dispatch(setForYouReopenSheetAfterPlayer(true));
+      } else if (dramaSheetSource === 'home') {
+        dispatch(setHomeReopenSheetAfterPlayer(true));
+      }
+    });
+    return sub;
+  }, [navigation, dramaSheetSource, dispatch]);
+
   if (episodes.length === 0) {
     return (
       <View style={styles.centered}>
@@ -177,6 +235,7 @@ export default function ShowPlayerScreen({ navigation }) {
             streamBase=""
             itemHeight={itemHeight}
             renderTopOverlay={() => null}
+            onReturnToDramaSheet={dramaSheetSource ? returnToDramaSheet : undefined}
             // Seek to saved progress on first render of the starting episode
             initialSeekSec={
               index === startIndex && !hasSeenRef.current
@@ -194,6 +253,8 @@ export default function ShowPlayerScreen({ navigation }) {
                 ? (progressSec) => recordWatchHistory(item, progressSec)
                 : null
             }
+            showPlaybackSpeedControl
+            showOttOverlayControls
           />
         )}
         pagingEnabled

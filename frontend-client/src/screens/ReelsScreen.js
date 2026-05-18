@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,13 +14,20 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 
 import DramaDetailsSheetConnected from '../components/DramaDetailsSheetConnected';
 import { ROUTES } from '../constants/routes';
 import { API_BASE_URL } from '../constants/config';
 import { initShowPlayer } from '../redux/slices/showPlayerSlice';
+import {
+  clearHomeDramaSheetSession,
+  selectHomeDramaSheetSession,
+  selectHomeReopenSheetAfterPlayer,
+  setHomeDramaSheetSession,
+  setHomeReopenSheetAfterPlayer,
+} from '../redux/slices/reelsSlice';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COLUMN_WIDTH = (SCREEN_WIDTH - 32) / 3;
@@ -62,6 +69,7 @@ export default function PopularScreen() {
   const accessToken = useSelector((state) => state.auth?.accessToken);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const [searchQuery, setSearchQuery] = useState('');
   const [selected, setSelected] = useState(null);
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -73,6 +81,9 @@ export default function PopularScreen() {
   const [showDetails, setShowDetails] = useState(null);
   const [showDetailsLoading, setShowDetailsLoading] = useState(false);
   const [showDetailsError, setShowDetailsError] = useState(null);
+  const homeSession = useSelector(selectHomeDramaSheetSession);
+  const reopenHomeSheet = useSelector(selectHomeReopenSheetAfterPlayer);
+  const [dramaSheetKey, setDramaSheetKey] = useState(0);
 
   // 1. Load Categories
   useEffect(() => {
@@ -136,23 +147,20 @@ export default function PopularScreen() {
     return () => { cancelled = true; };
   }, [activeTab, searchQuery]);
 
-  // Close sheet when screen loses focus to prevent cross-screen state bleed
-  const isFocused = useIsFocused();
-  useEffect(() => {
-    if (!isFocused) {
-      // Always close sheet when navigating away
-      setSheetVisible(false);
-      setSelected(null);
-      setShowDetails(null);
-      setShowDetailsError(null);
-    } else {
-      // Always ensure sheet is closed when returning to this screen
-      setSheetVisible(false);
-      setSelected(null);
-      setShowDetails(null);
-      setShowDetailsError(null);
-    }
-  }, [isFocused]);
+  // Re-open drama sheet after returning from ShowPlayer (back, gesture, title, episodes)
+  useFocusEffect(
+    useCallback(() => {
+      if (!reopenHomeSheet || !homeSession?.selectedItem) return;
+      dispatch(setHomeReopenSheetAfterPlayer(false));
+      const { selectedItem, initialTab } = homeSession;
+      setDramaSheetKey((k) => k + 1);
+      setSelected(selectedItem);
+      setSheetInitialTab(initialTab || 'synopsis');
+      setSheetVisible(true);
+      fetchShowDetails(selectedItem.show_id, 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dispatch, reopenHomeSheet, homeSession])
+  );
 
   const fetchShowDetails = async (showId, fromEp = 1) => {
     setShowDetailsLoading(true);
@@ -177,6 +185,7 @@ export default function PopularScreen() {
   };
 
   const openDetails = (item, initialTab = 'synopsis') => {
+    setDramaSheetKey((k) => k + 1);
     const selectedItem = {
       ...item,
       show_id: item.id,
@@ -187,6 +196,7 @@ export default function PopularScreen() {
     setSelected(selectedItem);
     setSheetInitialTab(initialTab);
     setSheetVisible(true);
+    dispatch(setHomeDramaSheetSession({ selectedItem, initialTab }));
     fetchShowDetails(item.id, 1);
   };
 
@@ -198,6 +208,13 @@ export default function PopularScreen() {
   const handleEpisodePress = (episode) => {
     if (!selected || !showDetails) return;
     if (episode.status !== 'ready' && !episode.is_locked) return;
+
+    dispatch(
+      setHomeDramaSheetSession({
+        selectedItem: selected,
+        initialTab: sheetInitialTab,
+      })
+    );
 
     dispatch(
       initShowPlayer({
@@ -212,10 +229,12 @@ export default function PopularScreen() {
     );
 
     setSheetVisible(false);
-    navigation.navigate(ROUTES.SHOW_PLAYER);
+    navigation.navigate(ROUTES.SHOW_PLAYER, { fromHome: true });
   };
 
   const handleCloseSheet = () => {
+    dispatch(setHomeReopenSheetAfterPlayer(false));
+    dispatch(clearHomeDramaSheetSession());
     setSheetVisible(false);
     setSelected(null);
     setShowDetails(null);
@@ -285,6 +304,7 @@ export default function PopularScreen() {
       )}
 
       <DramaDetailsSheetConnected
+        key={`drama-${dramaSheetKey}-${selected?.show_id ?? 'none'}`}
         visible={isFocused && sheetVisible}
         item={selected}
         details={selected?.show_id === showDetails?.show_id ? showDetails : null}

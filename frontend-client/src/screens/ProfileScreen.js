@@ -26,7 +26,7 @@ const FEATURE_ICONS = [
 
 const MENU_ITEMS = [
   { icon: 'wallet-outline', label: 'Top Up', right: null },
-  { icon: 'card-outline', label: 'My Wallet', right: '🪙 10' },
+  { icon: 'card-outline', label: 'My Wallet', right: null },
   { icon: 'gift-outline', label: 'Earn Rewards', badge: '+70' },
   { icon: 'heart-outline', label: 'Gifts', right: null },
   { icon: 'time-outline', label: 'History', right: null },
