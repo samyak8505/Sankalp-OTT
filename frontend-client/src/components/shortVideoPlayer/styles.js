@@ -5,7 +5,7 @@ import { shortVideoTheme } from './theme';
 
 export const styles = StyleSheet.create({
   reelContainer: { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
-  uiOverlay: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 16 },
+  uiOverlay: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 16, zIndex: 20 },
 
   sideActionsColumn: {
     alignSelf: 'flex-end',
@@ -175,5 +175,128 @@ export const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  errorOverlayText: {
+    color: '#ff6b6b',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  speedChip: {
+    position: 'absolute',
+    left: 14,
+    zIndex: 50,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  speedChipText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  speedModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+    paddingBottom: 32,
+  },
+  speedModalCard: {
+    marginHorizontal: 16,
+    backgroundColor: '#1c1c1e',
+    borderRadius: 14,
+    paddingVertical: 8,
+    maxWidth: 400,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  speedModalTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  speedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  speedRowActive: {
+    backgroundColor: 'rgba(255,45,85,0.12)',
+  },
+  speedRowText: {
+    color: '#ddd',
+    fontSize: 16,
+  },
+  speedRowTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+
+  ottChromeRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 15,
+    justifyContent: 'space-between',
+  },
+  ottTapZone: {
+    position: 'absolute',
+    zIndex: 1,
+  },
+  ottDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    zIndex: 2,
+  },
+  ottDimPaused: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    zIndex: 2,
+  },
+  ottTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    zIndex: 30,
+  },
+  speedChipTop: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  ottCenterWrap: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 25,
+  },
+  ottPlayPauseFab: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 2,
   },
 });

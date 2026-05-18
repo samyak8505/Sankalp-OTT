@@ -77,6 +77,15 @@ export default function useShortVideoPlayback({
     setManuallyPaused((prev) => !prev);
   }, [isActive, isLocked]);
 
+  /** Explicit play/pause for overlay controls (avoids double-tap debounce). */
+  const setManualPaused = useCallback(
+    (nextPaused) => {
+      if (isLocked || !isActive) return;
+      setManuallyPaused(!!nextPaused);
+    },
+    [isActive, isLocked]
+  );
+
   const seekTo = useCallback((time) => {
     if (!videoRef.current) return;
     videoRef.current.seek(time);
@@ -91,6 +100,7 @@ export default function useShortVideoPlayback({
     firstFrameReady,
     manuallyPaused,
     togglePlayback,
+    setManualPaused,
     seekTo,
     onLoad,
     onProgress,

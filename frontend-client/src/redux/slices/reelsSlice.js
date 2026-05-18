@@ -84,8 +84,21 @@ const reelsSlice = createSlice({
     showMode: null, // { show_id, show_title, episodes, total_episodes, has_more }
     showModeLoading: false,
     showModeError: null,
+
+    /** For You: reopen drama sheet after ShowPlayer closes (back / gesture). */
+    forYouDramaSheetSession: null, // { item, initialTab }
+    forYouReopenSheetAfterPlayer: false,
   },
   reducers: {
+    setForYouDramaSheetSession(state, action) {
+      state.forYouDramaSheetSession = action.payload;
+    },
+    clearForYouDramaSheetSession(state) {
+      state.forYouDramaSheetSession = null;
+    },
+    setForYouReopenSheetAfterPlayer(state, action) {
+      state.forYouReopenSheetAfterPlayer = !!action.payload;
+    },
     clearShowMode(state) {
       state.showMode = null;
       state.showModeError = null;
@@ -150,7 +163,13 @@ const reelsSlice = createSlice({
   },
 });
 
-export const { clearShowMode, unlockEpisodeInForYou } = reelsSlice.actions;
+export const {
+  clearShowMode,
+  unlockEpisodeInForYou,
+  setForYouDramaSheetSession,
+  clearForYouDramaSheetSession,
+  setForYouReopenSheetAfterPlayer,
+} = reelsSlice.actions;
 export default reelsSlice.reducer;
 
 // Selectors
@@ -161,3 +180,6 @@ export const selectForYouOffset = (state) => state.reels.forYouOffset;
 export const selectShowMode = (state) => state.reels.showMode;
 export const selectShowModeLoading = (state) => state.reels.showModeLoading;
 export const selectShowModeError = (state) => state.reels.showModeError;
+export const selectForYouDramaSheetSession = (state) => state.reels.forYouDramaSheetSession;
+export const selectForYouReopenSheetAfterPlayer = (state) =>
+  state.reels.forYouReopenSheetAfterPlayer;

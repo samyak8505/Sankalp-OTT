@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 
 import DramaDetailsSheetConnected from '../components/DramaDetailsSheetConnected';
@@ -23,20 +23,25 @@ import { API_BASE_URL } from '../constants/config';
 import { ROUTES } from '../constants/routes';
 import {
   clearShowMode,
+  clearForYouDramaSheetSession,
   fetchForYouFeed,
   fetchShowEpisodes,
   selectForYouHasMore,
   selectForYouItems,
   selectForYouLoading,
   selectForYouOffset,
+  selectForYouDramaSheetSession,
+  selectForYouReopenSheetAfterPlayer,
   selectShowMode,
   selectShowModeError,
   selectShowModeLoading,
+  setForYouDramaSheetSession,
+  setForYouReopenSheetAfterPlayer,
 } from '../redux/slices/reelsSlice';
 import {
   initShowPlayer,
 } from '../redux/slices/showPlayerSlice';
-import { upsertWatchHistory } from '../redux/slices/myListSlice'; // NEW
+import { upsertWatchHistory } from '../redux/slices/myListSlice';
 
 const DETAILS_PAGE_SIZE = 30;
 
@@ -50,31 +55,64 @@ export default function ForYouScreen() {
   const showMode = useSelector(selectShowMode);
   const showModeLoading = useSelector(selectShowModeLoading);
   const showModeError = useSelector(selectShowModeError);
+  const sheetSession = useSelector(selectForYouDramaSheetSession);
+  const reopenAfterPlayer = useSelector(selectForYouReopenSheetAfterPlayer);
   const isFocused = useIsFocused();
-  const accessToken = useSelector((state) => state.auth?.accessToken); // NEW
+  const accessToken = useSelector((state) => state.auth?.accessToken);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sheetVisible, setSheetVisible] = useState(false);
   const [selectedDrama, setSelectedDrama] = useState(null);
   const [sheetInitialTab, setSheetInitialTab] = useState('synopsis');
+  const [dramaSheetKey, setDramaSheetKey] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(SCREEN_HEIGHT);
+
+  const onScreenLayout = useCallback((e) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) setViewportHeight(h);
+  }, []);
 
   useEffect(() => {
     dispatch(fetchForYouFeed({ offset: 0, refresh: true }));
   }, [dispatch]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!reopenAfterPlayer || !sheetSession?.item) return;
+      dispatch(setForYouReopenSheetAfterPlayer(false));
+      const { item, initialTab } = sheetSession;
+      setDramaSheetKey((k) => k + 1);
+      setSelectedDrama(item);
+      setSheetInitialTab(initialTab || 'synopsis');
+      setSheetVisible(true);
+      const sid = item.show_id;
+      if (!showMode || showMode.show_id !== sid) {
+        dispatch(
+          fetchShowEpisodes({
+            showId: sid,
+            fromEp: 1,
+            limit: DETAILS_PAGE_SIZE,
+          })
+        );
+      }
+    }, [dispatch, reopenAfterPlayer, sheetSession, showMode])
+  );
+
   const onMomentumScrollEnd = useCallback((e) => {
-    const newIndex = Math.round(e.nativeEvent.contentOffset.y / SCREEN_HEIGHT);
+    const newIndex = Math.round(e.nativeEvent.contentOffset.y / viewportHeight);
     setCurrentIndex(newIndex);
 
     if (hasMore && newIndex >= items.length - DEFAULT_PREFETCH_THRESHOLD) {
       dispatch(fetchForYouFeed({ offset }));
     }
-  }, [dispatch, hasMore, items.length, offset]);
+  }, [dispatch, hasMore, items.length, offset, viewportHeight]);
 
   const openDramaDetails = useCallback((item, initialTab = 'synopsis') => {
+    setDramaSheetKey((k) => k + 1);
     setSelectedDrama(item);
     setSheetInitialTab(initialTab);
     setSheetVisible(true);
+    dispatch(setForYouDramaSheetSession({ item, initialTab }));
     dispatch(clearShowMode());
     dispatch(fetchShowEpisodes({
       showId: item.show_id,
@@ -101,16 +139,25 @@ export default function ForYouScreen() {
   }, [dispatch, selectedDrama]);
 
   const handleCloseSheet = useCallback(() => {
+    dispatch(setForYouReopenSheetAfterPlayer(false));
+    dispatch(clearForYouDramaSheetSession());
+    setSheetVisible(false);
     setSelectedDrama(null);
     dispatch(clearShowMode());
   }, [dispatch]);
 
-  // Tapping an episode in the detail sheet opens the drama player
   const handleEpisodePress = useCallback((episode) => {
     if (!selectedDrama || !showMode) return;
     if (episode.status !== 'ready' && !episode.is_locked) return;
 
-    // ── NEW: record watch history immediately when episode is tapped ──
+    setSheetVisible(false);
+    dispatch(
+      setForYouDramaSheetSession({
+        item: selectedDrama,
+        initialTab: sheetInitialTab,
+      })
+    );
+
     if (accessToken) {
       dispatch(upsertWatchHistory({
         episodeId: episode.episode_id,
@@ -123,7 +170,6 @@ export default function ForYouScreen() {
         durationSec: episode.duration_sec || 0,
       }));
     }
-    // ────────────────────────────────────────────────────────────────
 
     dispatch(
       initShowPlayer({
@@ -137,8 +183,8 @@ export default function ForYouScreen() {
       })
     );
 
-    navigation.navigate(ROUTES.SHOW_PLAYER);
-  }, [dispatch, navigation, selectedDrama, showMode, accessToken]);
+    navigation.navigate(ROUTES.SHOW_PLAYER, { fromForYou: true });
+  }, [dispatch, navigation, selectedDrama, showMode, accessToken, sheetInitialTab]);
 
   const handleRefresh = useCallback(() => {
     dispatch(fetchForYouFeed({ offset: 0, refresh: true }));
@@ -169,7 +215,7 @@ export default function ForYouScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={styles.screen} onLayout={onScreenLayout}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       <FlatList
         data={items}
@@ -182,12 +228,17 @@ export default function ForYouScreen() {
             onOpenDetails={handleOpenSynopsis}
             onWatchAll={handleOpenEpisodes}
             streamBase={API_BASE_URL}
+            itemHeight={viewportHeight}
+            showPlaybackSpeedControl
+            showOttOverlayControls
           />
         )}
         pagingEnabled
-        snapToInterval={SCREEN_HEIGHT}
+        snapToInterval={viewportHeight}
         snapToAlignment="start"
         decelerationRate="fast"
+        bounces={false}
+        overScrollMode="never"
         showsVerticalScrollIndicator={false}
         onMomentumScrollEnd={onMomentumScrollEnd}
         removeClippedSubviews
@@ -195,8 +246,8 @@ export default function ForYouScreen() {
         maxToRenderPerBatch={2}
         windowSize={3}
         getItemLayout={(_, index) => ({
-          length: SCREEN_HEIGHT,
-          offset: SCREEN_HEIGHT * index,
+          length: viewportHeight,
+          offset: viewportHeight * index,
           index,
         })}
         onRefresh={handleRefresh}
@@ -204,7 +255,8 @@ export default function ForYouScreen() {
       />
 
       <DramaDetailsSheetConnected
-        visible={sheetVisible}
+        key={`for-you-drama-${dramaSheetKey}-${selectedDrama?.show_id ?? 'none'}`}
+        visible={isFocused && sheetVisible}
         item={selectedDrama}
         details={selectedDrama?.show_id === showMode?.show_id ? showMode : null}
         loading={showModeLoading}
