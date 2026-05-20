@@ -1,10 +1,13 @@
 import axios from 'axios';
 
 const API_BASE = '/api';
+
+// const API_BASE = 'http://localhost:3000/api/v1/';
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // Send cookies with requests
 });
 
 // Create instance for long-running uploads (5 minute timeout)
@@ -12,6 +15,50 @@ const uploadApi = axios.create({
   baseURL: API_BASE,
   timeout: 300000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // Send cookies with requests
+});
+
+// Flag to prevent multiple refresh attempts simultaneously
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  
+  isRefreshing = false;
+  failedQueue = [];
+};
+
+// Refresh token function
+const refreshAccessToken = () => {
+  return api.get('/v1/auth/refresh-token', {
+    headers: { 'x-client-type': 'web' }
+  }).then((response) => {
+    const { data } = response.data;
+    const newAccessToken = data.accessToken;
+    
+    // Update stored token
+    localStorage.setItem('admin_token', newAccessToken);
+    
+    // Update default header for future requests
+    api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+    uploadApi.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+    
+    return newAccessToken;
+  });
+};
+
+// Attach admin JWT token to every request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('admin_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
 });
 
 // Attach admin JWT token to upload requests too
@@ -21,24 +68,94 @@ uploadApi.interceptors.request.use((config) => {
   return config;
 });
 
-// Attach admin JWT token to every request
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('admin_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
-// Auto-logout on 401 — token expired or invalid
+// Response interceptor with token refresh logic
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('admin_token');
-      localStorage.removeItem('admin_user');
-      // Trigger a full page reload — Redux store resets,
-      // authSlice sees no token, login screen appears
-      window.location.href = '/';
+    const originalRequest = error.config;
+    
+    // Do NOT refresh on auth endpoints (login, register, refresh-token)
+    const isAuthEndpoint = 
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/register') ||
+      originalRequest.url?.includes('/auth/refresh-token');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        }).catch((err) => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      return refreshAccessToken()
+        .then((token) => {
+          processQueue(null, token);
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        })
+        .catch((err) => {
+          processQueue(err, null);
+          localStorage.removeItem('admin_token');
+          localStorage.removeItem('admin_user');
+          window.location.href = '/admin/';
+          return Promise.reject(err);
+        });
     }
+
+    return Promise.reject(error);
+  }
+);
+
+// Auto-logout on 401 for uploads too (with refresh token support)
+uploadApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const originalRequest = error.config;
+
+    // Do NOT refresh on auth endpoints
+    const isAuthEndpoint = 
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/register') ||
+      originalRequest.url?.includes('/auth/refresh-token');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then((token) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return uploadApi(originalRequest);
+        }).catch((err) => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      return refreshAccessToken()
+        .then((token) => {
+          processQueue(null, token);
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return uploadApi(originalRequest);
+        })
+        .catch((err) => {
+          processQueue(err, null);
+          localStorage.removeItem('admin_token');
+          localStorage.removeItem('admin_user');
+          window.location.href = '/admin/';
+          return Promise.reject(err);
+        });
+    }
+
     return Promise.reject(error);
   }
 );
