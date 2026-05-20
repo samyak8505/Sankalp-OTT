@@ -9,6 +9,7 @@ const initialState = {
     role: null,
     plan: null,
     coins: null,
+    membership: null,
     accessToken: null,
     isInitializing: false,
     error: null,
@@ -193,6 +194,15 @@ const authSlice = createSlice({
     setCoins(state, action) {
       state.coins = action.payload;
     },
+    setPlan(state, action) {
+      state.plan = action.payload;
+    },
+    patchUserProfile(state, action) {
+      const { plan, coins, membership } = action.payload || {};
+      if (plan !== undefined) state.plan = plan;
+      if (coins !== undefined) state.coins = coins;
+      if (membership !== undefined) state.membership = membership;
+    },
     /**
      * Logout reducer (clears auth state)
      * refreshToken is cleared from SecureStore by authService
@@ -203,6 +213,7 @@ const authSlice = createSlice({
       state.role = null;
       state.plan = null;
       state.coins = null;
+      state.membership = null;
       state.accessToken = null;
       state.error = null;
       state.status = 'idle';
@@ -239,6 +250,7 @@ const authSlice = createSlice({
         state.role = action.payload.user.role;
         state.plan = action.payload.user.plan;
         state.coins = action.payload.user.coins;
+        state.membership = action.payload.user.membership ?? null;
         state.status = 'succeeded';
         state.isLoading = false;
       })
@@ -262,6 +274,7 @@ const authSlice = createSlice({
           state.role = action.payload.user.role;
           state.plan = action.payload.user.plan;
           state.coins = action.payload.user.coins;
+          state.membership = action.payload.user.membership ?? null;
           // refreshToken stays in SecureStore (never exposed in Redux)
         }
       })
@@ -297,7 +310,16 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearRegisterState, clearLogoutState, clearLogoutError, setTokens, setCoins, logout } = authSlice.actions;
+export const {
+  clearRegisterState,
+  clearLogoutState,
+  clearLogoutError,
+  setTokens,
+  setCoins,
+  setPlan,
+  patchUserProfile,
+  logout,
+} = authSlice.actions;
 
 export default authSlice.reducer;
 

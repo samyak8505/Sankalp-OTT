@@ -9,6 +9,7 @@ import {
   deletePlan,
   togglePlanStatus,
 } from './membership.service.js';
+import { simulateMembershipPurchase } from './membership-purchase.service.js';
 
 /**
  * =====================================================
@@ -27,6 +28,27 @@ export const getActivePlans = asyncHandler(async (req, res) => {
   return res.json(
     new ApiResponse(200, plans, 'Active membership plans fetched successfully')
   );
+});
+
+/**
+ * POST /api/v1/membership/simulate-purchase
+ * Body: { plan_id: string }
+ * Simulated payment — grants membership for plan duration.
+ */
+export const simulateMembershipPurchaseHandler = asyncHandler(async (req, res) => {
+  const planId = req.body?.plan_id;
+  if (!planId || typeof planId !== 'string') {
+    return res.status(400).json(new ApiResponse(400, null, 'plan_id is required'));
+  }
+
+  const result = await simulateMembershipPurchase(req.user.id, planId);
+  if (!result.ok) {
+    return res
+      .status(result.status || 400)
+      .json(new ApiResponse(result.status || 400, null, result.message));
+  }
+
+  return res.json(new ApiResponse(200, result.data, result.message));
 });
 
 /**

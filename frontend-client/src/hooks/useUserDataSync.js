@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import { API_BASE_URL } from '../constants/config';
-import { setCoins } from '../redux/slices/authSlice';
+import { patchUserProfile } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
 
 const SYNC_INTERVAL = 200000; // Sync every 200 seconds (only when app is active)
@@ -53,11 +53,14 @@ export function useUserDataSync() {
 
         const user = response.data?.data;
         
-        // Update coins if available
-        if (typeof user?.coins === 'number') {
-          dispatch(setCoins(user.coins));
-          // Also sync to SecureStore for persistence
-          await authService.patchUserDataInStore({ coins: user.coins });
+        const patch = {};
+        if (typeof user?.coins === 'number') patch.coins = user.coins;
+        if (user?.plan !== undefined) patch.plan = user.plan;
+        if (user?.membership !== undefined) patch.membership = user.membership;
+
+        if (Object.keys(patch).length > 0) {
+          dispatch(patchUserProfile(patch));
+          await authService.patchUserDataInStore(patch);
         }
       } catch (error) {
         if (error.response?.status === 401) {
