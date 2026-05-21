@@ -6,6 +6,10 @@ import {
   toggleUserStatus,
   adjustUserCoins,
   getUserProfile,
+  getCoinRules,
+  saveCoinRules,
+  getCoinMetrics,
+  getCoinTransactions,
 } from './admin.controller.js';
 
 const router = express.Router();
@@ -27,5 +31,21 @@ router.patch('/users/:userId/status', toggleUserStatus);
 
 // PATCH adjust user coins
 router.patch('/users/:userId/coins', adjustUserCoins);
+
+// ─────────────────────────────────────────────────────────────────
+// COIN MANAGEMENT ENDPOINTS
+// ─────────────────────────────────────────────────────────────────
+
+// GET coin rules
+router.get('/coins/rules', getCoinRules);
+
+// PUT save coin rules
+router.put('/coins/rules', saveCoinRules);
+
+// GET coin metrics
+router.get('/coins/metrics', getCoinMetrics);
+
+// GET coin transactions
+router.get('/coins/transactions', getCoinTransactions);
 
 export default router;

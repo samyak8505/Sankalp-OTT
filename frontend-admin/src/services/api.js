@@ -264,3 +264,11 @@ export const usersApi = {
   adjustCoins: (userId, amount, reason) =>
     api.patch(`/v1/admin/users/${userId}/coins`, { amount, reason }),
 };
+
+// ── Coins Management ──
+export const coinsApi = {
+  getRules: () => api.get('/v1/admin/coins/rules'),
+  saveRules: (rules) => api.put('/v1/admin/coins/rules', rules),
+  getMetrics: () => api.get('/v1/admin/coins/metrics'),
+  getTransactions: (params) => api.get('/v1/admin/coins/transactions', { params }),
+};
