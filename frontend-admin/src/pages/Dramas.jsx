@@ -3,6 +3,23 @@ import { Search, Plus, Edit2, Trash2, BarChart2, ChevronUp, ChevronDown, Lock, U
 import Modal, { ModalSection, FormGroup } from '../components/ui/Modal.jsx'
 import { Toggle, StepBar, FileDropzone, ConfirmDialog } from '../components/ui/Controls.jsx'
 import { useDramas } from '../services/useDramas.js'
+import { episodesApi } from '../services/api.js'
+
+// Helper function to convert MM:SS duration string to seconds
+function durationToSeconds(durationStr) {
+  if (!durationStr) return 0
+  const parts = durationStr.split(':')
+  if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1])
+  return parseInt(durationStr) || 0
+}
+
+// Helper function to convert seconds back to MM:SS
+function secondsToDuration(seconds) {
+  if (!seconds) return '0:00'
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${String(secs).padStart(2, '0')}`
+}
 
 function VideoDropzone({ file, onFileChange, uploadProgress }) {
   const inputRef = useRef()
@@ -456,6 +473,97 @@ function StatsModal({ open, onClose, drama }) {
   )
 }
 
+function EditEpisodeModal({ open, onClose, drama, onSave }) {
+  const [form, setForm] = useState({})
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open && drama?.selectedEpisode) {
+      setForm({
+        id: drama.selectedEpisode.id,
+        title: drama.selectedEpisode.title || '',
+        duration: drama.selectedEpisode.duration || '',
+        is_free: drama.selectedEpisode.is_free ?? true,
+        coin_cost: drama.selectedEpisode.coin_cost || 0,
+      })
+    }
+  }, [open, drama?.selectedEpisode])
+
+  const upd = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const handleSave = async () => {
+    if (!form.title.trim()) {
+      alert('Episode title is required')
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave({
+        ...drama.selectedEpisode,
+        ...form,
+      })
+    } catch (err) {
+      alert('Failed to save episode: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Edit Episode - ${form.title || ''}`} width={600}>
+      <ModalSection title="Episode Details">
+        <FormGroup label="Title *">
+          <input 
+            className="input" 
+            style={{ width: '100%' }} 
+            placeholder="Episode title"
+            value={form.title || ''}
+            onChange={e => upd('title', e.target.value)}
+          />
+        </FormGroup>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <FormGroup label="Duration">
+            <input 
+              className="input" 
+              placeholder="MM:SS (e.g., 42:30)"
+              value={form.duration || ''}
+              onChange={e => upd('duration', e.target.value)}
+            />
+          </FormGroup>
+          <FormGroup label="Type">
+            <select 
+              className="select"
+              value={form.is_free ? 'free' : 'paid'}
+              onChange={e => upd('is_free', e.target.value === 'free')}
+            >
+              <option value="free">Free</option>
+              <option value="paid">Paid</option>
+            </select>
+          </FormGroup>
+        </div>
+        {!form.is_free && (
+          <FormGroup label="Coin Cost">
+            <input 
+              className="input" 
+              type="number"
+              placeholder="0"
+              min="0"
+              value={form.coin_cost || 0}
+              onChange={e => upd('coin_cost', parseInt(e.target.value) || 0)}
+            />
+          </FormGroup>
+        )}
+      </ModalSection>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+        <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 export default function Dramas() {
   const { dramas, categories, loading, createDrama, updateDrama, deleteDrama: apiDeleteDrama, togglePublish: apiTogglePublish, reload } = useDramas()
   const ALL_CATEGORIES = categories.map(c => c.name)
@@ -718,50 +826,23 @@ export default function Dramas() {
       />
       
       {/* Edit Episode Modal */}
-      <Modal open={modal==='edit-ep'} onClose={() => setModal(null)} title={`Edit Episode - ${selected?.selectedEpisode?.title || ''}`} width={600}>
-        <ModalSection title="Episode Details">
-          <FormGroup label="Title">
-            <input 
-              className="input" 
-              style={{ width: '100%' }} 
-              placeholder="Episode title"
-              defaultValue={selected?.selectedEpisode?.title || ''}
-            />
-          </FormGroup>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <FormGroup label="Duration">
-              <input 
-                className="input" 
-                placeholder="MM:SS"
-                defaultValue={selected?.selectedEpisode?.duration || ''}
-              />
-            </FormGroup>
-            <FormGroup label="Type">
-              <select className="select">
-                <option selected={selected?.selectedEpisode?.is_free}>Free</option>
-                <option selected={!selected?.selectedEpisode?.is_free}>Paid</option>
-              </select>
-            </FormGroup>
-          </div>
-          {!selected?.selectedEpisode?.is_free && (
-            <FormGroup label="Coin Cost">
-              <input 
-                className="input" 
-                type="number"
-                placeholder="0"
-                defaultValue={selected?.selectedEpisode?.coin_cost || '0'}
-              />
-            </FormGroup>
-          )}
-        </ModalSection>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button className="btn btn-ghost" onClick={() => setModal(null)}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => {
-            alert('Episode update feature coming soon!')
-            setModal(null)
-          }}>Save Changes</button>
-        </div>
-      </Modal>
+      <EditEpisodeModal open={modal==='edit-ep'} onClose={() => setModal(null)} drama={selected} onSave={async (episodeData) => {
+        try {
+          // Call episodesApi.update directly with the correct data structure
+          await episodesApi.update(episodeData.id, {
+            title: episodeData.title,
+            episode_num: episodeData.ep,
+            is_free: episodeData.is_free,
+            coin_cost: episodeData.coin_cost,
+            duration_sec: durationToSeconds(episodeData.duration),
+          })
+          alert('Episode updated successfully!')
+          await reload()
+          setModal(null)
+        } catch (err) {
+          alert('Failed to update episode: ' + (err.response?.data?.error || err.message))
+        }
+      }} />
 
       {/* Delete Episode Confirmation */}
       <ConfirmDialog 
@@ -771,15 +852,12 @@ export default function Dramas() {
         message={`Permanently delete episode "${selected?.selectedEpisode?.title}"? This cannot be undone.`}
         onConfirm={async () => {
           try {
-            await updateDrama(selected.id, {
-              ...selected,
-              episodes: selected.episodes.filter(e => e.id !== selected.selectedEpisode.id)
-            })
+            await episodesApi.delete(selected?.selectedEpisode?.id)
             alert('Episode deleted successfully!')
             await reload()
             setModal(null)
           } catch (err) {
-            alert('Failed to delete episode: ' + err.message)
+            alert('Failed to delete episode: ' + (err.response?.data?.error || err.message))
           }
         }}
         onCancel={() => setModal(null)}
