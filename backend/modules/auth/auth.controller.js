@@ -344,7 +344,29 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
       throw new ApiError(404, 'User not found');
     }
 
-    return res.json(new ApiResponse(200, user, 'User profile fetched'));
+    const activeMembership = await prisma.userMembership.findFirst({
+      where: {
+        user_id: userId,
+        status: 'ACTIVE',
+        end_date: { gte: new Date() },
+      },
+      orderBy: { end_date: 'desc' },
+      include: { plan: { select: { name: true, duration: true } } },
+    });
+
+    const profile = {
+      ...user,
+      membership: activeMembership
+        ? {
+            plan_name: activeMembership.plan.name,
+            duration: activeMembership.plan.duration,
+            end_date: activeMembership.end_date,
+            status: activeMembership.status,
+          }
+        : null,
+    };
+
+    return res.json(new ApiResponse(200, profile, 'User profile fetched'));
   } catch (e) {
     if (e instanceof ApiError) {
       throw e;

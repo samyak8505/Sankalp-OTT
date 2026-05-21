@@ -3,6 +3,7 @@ import { requireAuth } from '../../middleware/auth.middleware.js';
 import { requireAdmin } from '../../middleware/admin.middleware.js';
 import {
   getActivePlans,
+  simulateMembershipPurchaseHandler,
   getAllMembershipPlans,
   getMembershipPlan,
   createMembershipPlan,
@@ -21,6 +22,9 @@ const router = express.Router();
 
 // GET all active membership plans
 router.get('/plans', getActivePlans);
+
+// POST simulated membership purchase (logged-in users)
+router.post('/simulate-purchase', requireAuth, simulateMembershipPurchaseHandler);
 
 /**
  * =====================================================
