@@ -3,6 +3,23 @@ import { Search, Plus, Edit2, Trash2, BarChart2, ChevronUp, ChevronDown, Lock, U
 import Modal, { ModalSection, FormGroup } from '../components/ui/Modal.jsx'
 import { Toggle, StepBar, FileDropzone, ConfirmDialog } from '../components/ui/Controls.jsx'
 import { useDramas } from '../services/useDramas.js'
+import { episodesApi } from '../services/api.js'
+
+// Helper function to convert MM:SS duration string to seconds
+function durationToSeconds(durationStr) {
+  if (!durationStr) return 0
+  const parts = durationStr.split(':')
+  if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1])
+  return parseInt(durationStr) || 0
+}
+
+// Helper function to convert seconds back to MM:SS
+function secondsToDuration(seconds) {
+  if (!seconds) return '0:00'
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${String(secs).padStart(2, '0')}`
+}
 
 function VideoDropzone({ file, onFileChange, uploadProgress }) {
   const inputRef = useRef()
@@ -456,6 +473,97 @@ function StatsModal({ open, onClose, drama }) {
   )
 }
 
+function EditEpisodeModal({ open, onClose, drama, onSave }) {
+  const [form, setForm] = useState({})
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open && drama?.selectedEpisode) {
+      setForm({
+        id: drama.selectedEpisode.id,
+        title: drama.selectedEpisode.title || '',
+        duration: drama.selectedEpisode.duration || '',
+        is_free: drama.selectedEpisode.is_free ?? true,
+        coin_cost: drama.selectedEpisode.coin_cost || 0,
+      })
+    }
+  }, [open, drama?.selectedEpisode])
+
+  const upd = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const handleSave = async () => {
+    if (!form.title.trim()) {
+      alert('Episode title is required')
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave({
+        ...drama.selectedEpisode,
+        ...form,
+      })
+    } catch (err) {
+      alert('Failed to save episode: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Edit Episode - ${form.title || ''}`} width={600}>
+      <ModalSection title="Episode Details">
+        <FormGroup label="Title *">
+          <input 
+            className="input" 
+            style={{ width: '100%' }} 
+            placeholder="Episode title"
+            value={form.title || ''}
+            onChange={e => upd('title', e.target.value)}
+          />
+        </FormGroup>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <FormGroup label="Duration">
+            <input 
+              className="input" 
+              placeholder="MM:SS (e.g., 42:30)"
+              value={form.duration || ''}
+              onChange={e => upd('duration', e.target.value)}
+            />
+          </FormGroup>
+          <FormGroup label="Type">
+            <select 
+              className="select"
+              value={form.is_free ? 'free' : 'paid'}
+              onChange={e => upd('is_free', e.target.value === 'free')}
+            >
+              <option value="free">Free</option>
+              <option value="paid">Paid</option>
+            </select>
+          </FormGroup>
+        </div>
+        {!form.is_free && (
+          <FormGroup label="Coin Cost">
+            <input 
+              className="input" 
+              type="number"
+              placeholder="0"
+              min="0"
+              value={form.coin_cost || 0}
+              onChange={e => upd('coin_cost', parseInt(e.target.value) || 0)}
+            />
+          </FormGroup>
+        )}
+      </ModalSection>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+        <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 export default function Dramas() {
   const { dramas, categories, loading, createDrama, updateDrama, deleteDrama: apiDeleteDrama, togglePublish: apiTogglePublish, reload } = useDramas()
   const ALL_CATEGORIES = categories.map(c => c.name)
@@ -464,6 +572,7 @@ export default function Dramas() {
   const [statusF, setStatusF] = useState('All')
   const [modal, setModal] = useState(null)
   const [selected, setSelected] = useState(null)
+  const [expandedDramaId, setExpandedDramaId] = useState(null)
 
   const filtered = dramas.filter(d => {
     const m = d.title.toLowerCase().includes(q.toLowerCase()) || (d.tags||[]).some(t => t.toLowerCase().includes(q.toLowerCase()))
@@ -543,62 +652,157 @@ export default function Dramas() {
       </div>
 
       <div className="card" style={{ padding:0 }}>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Drama</th><th>Category</th><th>Episodes</th><th>Tags</th><th>Rating</th><th>Views</th><th>Status</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {filtered.map(d => (
-                <tr key={d.id}>
-                  <td>
-                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                      <div style={{ width:38,height:52,borderRadius:6,background:'var(--bg4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0,border:'1px solid var(--border)' }}>▶</div>
-                      <div>
-                        <div style={{ fontWeight:500, fontSize:13 }}>{d.title}</div>
-                        <div style={{ fontSize:11, color:'var(--text3)', fontFamily:'var(--mono)' }}>{d.id}</div>
-                        {d.feed_position > 0 && <div style={{ fontSize:10, color:'var(--accent2)' }}>★ For You #{d.feed_position}</div>}
+        <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+          {filtered.length === 0 ? (
+            <div style={{ textAlign:'center', color:'var(--text3)', padding:'40px 20px' }}>No dramas found</div>
+          ) : (
+            filtered.map(d => {
+              const isExpanded = expandedDramaId === d.id
+              return (
+                <div key={d.id}>
+                  {/* Drama Row */}
+                  <div
+                    onClick={() => setExpandedDramaId(isExpanded ? null : d.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 16,
+                      padding: '16px 20px',
+                      borderBottom: '1px solid var(--border)',
+                      cursor: 'pointer',
+                      background: 'var(--bg)',
+                      transition: 'background 0.2s',
+                      ':hover': { background: 'var(--bg2)' }
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--bg)'}
+                  >
+                    {/* Expand/Collapse Chevron */}
+                    <div style={{ flexShrink: 0, color: 'var(--text3)', display: 'flex', alignItems: 'center' }}>
+                      {isExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} style={{ transform: 'rotate(180deg)' }} />}
+                    </div>
+
+                    {/* Drama Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                        <div style={{ fontWeight: 500, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '300px' }}>{d.title}</div>
+                        {d.feed_position > 0 && <div style={{ fontSize: 10, color: 'var(--accent2)', whiteSpace: 'nowrap', flexShrink: 0 }}>★ For You #{d.feed_position}</div>}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>{d.id}</div>
+                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 11 }}>
+                        <span className="badge badge-blue" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>{d.category}</span>
+                        <div style={{ color: 'var(--text3)' }}>{d.episodes.length} episodes {d.episodes.filter(e=>!e.is_free).length > 0 && `· ${d.episodes.filter(e=>!e.is_free).length} paid`}</div>
+                        {d.tags.slice(0, 2).map(t => <span key={t} className={`badge ${tagColor[t]||'badge-blue'}`} style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }}>{t}</span>)}
+                        {d.tags.length > 2 && <span className="badge badge-blue" style={{ fontSize: 10, flexShrink: 0 }}>+{d.tags.length-2}</span>}
                       </div>
                     </div>
-                  </td>
-                  <td><span className="badge badge-blue">{d.category}</span></td>
-                  <td>
-                    <div style={{ fontSize:13 }}>{d.episodes.length} ep</div>
-                    <div style={{ fontSize:10, color:'var(--text3)' }}>{d.episodes.filter(e=>!e.is_free).length} paid</div>
-                  </td>
-                  <td>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:3, maxWidth:140 }}>
-                      {d.tags.slice(0,3).map(t => <span key={t} className={`badge ${tagColor[t]||'badge-blue'}`} style={{ fontSize:10 }}>{t}</span>)}
-                      {d.tags.length>3 && <span className="badge badge-blue" style={{ fontSize:10 }}>+{d.tags.length-3}</span>}
-                    </div>
-                  </td>
-                  <td>
-                    {d.rating_avg > 0 ? (
-                      <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                        <Star size={12} fill="var(--amber)" color="var(--amber)"/>
-                        <span style={{ fontFamily:'var(--mono)', fontSize:12 }}>{d.rating_avg}</span>
-                        <span style={{ fontSize:10, color:'var(--text3)' }}>({d.rating_count})</span>
+
+                    {/* Summary Stats */}
+                    <div style={{ display: 'flex', gap: 24, alignItems: 'center', minWidth: 'fit-content', flexShrink: 0 }}>
+                      {d.rating_avg > 0 ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 'fit-content' }}>
+                          <Star size={12} fill="var(--amber)" color="var(--amber)"/>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{d.rating_avg}</span>
+                          <span style={{ fontSize: 10, color: 'var(--text3)' }}>({d.rating_count})</span>
+                        </div>
+                      ) : <span style={{ color: 'var(--text3)', fontSize: 11 }}>—</span>}
+                      <div style={{ textAlign: 'right', minWidth: 50 }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{d.views}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text3)' }}>views</div>
                       </div>
-                    ) : <span style={{ color:'var(--text3)', fontSize:11 }}>—</span>}
-                  </td>
-                  <td style={{ fontFamily:'var(--mono)', fontSize:12 }}>{d.views}</td>
-                  <td><span className={`badge ${d.status==='Published'?'badge-green':'badge-amber'}`}>{d.status}</span></td>
-                  <td>
-                    <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => open('edit', d)}><Edit2 size={11}/> Edit</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => open('add-ep', d)} title="Add episode" style={{ color:'var(--accent2)' }}><Plus size={11}/> Episode</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => open('stats', d)}><BarChart2 size={11}/></button>
-                      <button className={`btn btn-sm ${d.status==='Published'?'btn-danger':'btn-primary'}`} onClick={() => togglePublish(d.id)} style={{ fontSize:10 }}>
+                      <span className={`badge ${d.status==='Published'?'badge-green':'badge-amber'}`} style={{ minWidth: 'fit-content' }}>{d.status}</span>
+                    </div>
+
+                    {/* Drama Action Buttons */}
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: 16 }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => open('edit', d)} title="Edit drama details"><Edit2 size={11}/></button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => open('add-ep', d)} style={{ color: 'var(--accent2)' }} title="Add new episode"><Plus size={11}/></button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => open('stats', d)} title="View analytics"><BarChart2 size={11}/></button>
+                      <button className={`btn btn-sm ${d.status==='Published'?'btn-danger':'btn-primary'}`} onClick={() => togglePublish(d.id)} style={{ fontSize: 10, whiteSpace: 'nowrap' }} title={d.status==='Published' ? 'Unpublish drama' : 'Publish drama'}>
                         {d.status==='Published'?'Unpublish':'Publish'}
                       </button>
-                      <button className="btn btn-danger btn-sm" onClick={() => open('delete', d)}><Trash2 size={11}/></button>
+                      <button className="btn btn-danger btn-sm" onClick={() => open('delete', d)} title="Delete drama"><Trash2 size={11}/></button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length===0 && <tr><td colSpan={8} style={{ textAlign:'center', color:'var(--text3)', padding:'40px 0' }}>No dramas found</td></tr>}
-            </tbody>
-          </table>
+                  </div>
+
+                  {/* Episodes List - Expanded View */}
+                  {isExpanded && (
+                    <div style={{ background: 'var(--bg3)', padding: '0 20px', borderBottom: '1px solid var(--border)' }}>
+                      {d.episodes.length === 0 ? (
+                        <div style={{ padding: '20px', color: 'var(--text3)', textAlign: 'center', fontSize: 12 }}>No episodes yet</div>
+                      ) : (
+                        <div style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: 0,
+                          maxHeight: '400px',
+                          overflowY: 'auto',
+                          paddingRight: '4px',
+                          scrollBehavior: 'smooth'
+                        }}>
+                          {d.episodes.map((ep, idx) => (
+                            <div
+                              key={ep.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 16,
+                                padding: '12px 0',
+                                borderTop: idx === 0 ? 'none' : '1px solid var(--border)',
+                              }}
+                            >
+                              {/* Episode Number */}
+                              <div style={{ minWidth: 40, flexShrink: 0, color: 'var(--text3)', fontSize: 11, fontWeight: 500, fontFamily: 'var(--mono)' }}>
+                                EP {ep.ep}
+                              </div>
+
+                              {/* Episode Info */}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ep.title}</div>
+                                <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <span>{ep.duration || '—'}</span>
+                                  {ep.is_free ? <span style={{ color: 'var(--green)', flexShrink: 0 }}>Free</span> : <span style={{ color: 'var(--amber)', flexShrink: 0 }}>₹{ep.coin_cost}</span>}
+                                </div>
+                              </div>
+
+                              {/* Episode Status */}
+                              <div style={{ minWidth: 80, flexShrink: 0 }}>
+                                <span className={`badge ${
+                                  ep.status === 'published' ? 'badge-green' : 
+                                  ep.status === 'draft' ? 'badge-amber' :
+                                  ep.status === 'processing' ? 'badge-blue' :
+                                  ep.status === 'uploading' ? 'badge-blue' :
+                                  'badge-red'
+                                }`} style={{ fontSize: 10, textTransform: 'capitalize' }}>
+                                  {ep.status}
+                                </span>
+                              </div>
+
+                              {/* Views */}
+                              <div style={{ minWidth: 60, textAlign: 'right', flexShrink: 0 }}>
+                                <div style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{ep.views ? (ep.views/1000).toFixed(0) : '0'}K</div>
+                                <div style={{ fontSize: 10, color: 'var(--text3)' }}>views</div>
+                              </div>
+
+                              {/* Episode Actions */}
+                              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                <button className="btn btn-ghost btn-sm" onClick={() => open('edit-ep', { ...d, selectedEpisode: ep })} title="Edit episode">
+                                  <Edit2 size={11}/>
+                                </button>
+                                <button className="btn btn-danger btn-sm" onClick={() => open('delete-ep', { ...d, selectedEpisode: ep })} title="Delete episode">
+                                  <Trash2 size={11}/>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
 
@@ -619,6 +823,44 @@ export default function Dramas() {
       <ConfirmDialog open={modal==='delete'} title="Delete Drama" danger
         message={`Permanently delete "${selected?.title}"? This will remove all episodes. This cannot be undone.`}
         onConfirm={() => handleDelete(selected?.id)} onCancel={() => setModal(null)}
+      />
+      
+      {/* Edit Episode Modal */}
+      <EditEpisodeModal open={modal==='edit-ep'} onClose={() => setModal(null)} drama={selected} onSave={async (episodeData) => {
+        try {
+          // Call episodesApi.update directly with the correct data structure
+          await episodesApi.update(episodeData.id, {
+            title: episodeData.title,
+            episode_num: episodeData.ep,
+            is_free: episodeData.is_free,
+            coin_cost: episodeData.coin_cost,
+            duration_sec: durationToSeconds(episodeData.duration),
+          })
+          alert('Episode updated successfully!')
+          await reload()
+          setModal(null)
+        } catch (err) {
+          alert('Failed to update episode: ' + (err.response?.data?.error || err.message))
+        }
+      }} />
+
+      {/* Delete Episode Confirmation */}
+      <ConfirmDialog 
+        open={modal==='delete-ep'} 
+        title="Delete Episode" 
+        danger
+        message={`Permanently delete episode "${selected?.selectedEpisode?.title}"? This cannot be undone.`}
+        onConfirm={async () => {
+          try {
+            await episodesApi.delete(selected?.selectedEpisode?.id)
+            alert('Episode deleted successfully!')
+            await reload()
+            setModal(null)
+          } catch (err) {
+            alert('Failed to delete episode: ' + (err.response?.data?.error || err.message))
+          }
+        }}
+        onCancel={() => setModal(null)}
       />
     </div>
   )
