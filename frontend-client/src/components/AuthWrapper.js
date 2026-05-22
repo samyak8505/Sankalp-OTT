@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 
 import AppNavigator from '../navigation/AppNavigator';
 import AuthNavigator from '../navigation/AuthNavigator';
+import DailyCheckinGate from './rewards/DailyCheckinGate';
 import SplashScreen from './SplashScreen';
 import { GuestAuthProvider } from '../context/GuestAuthContext';
 import { ROUTES } from '../constants/routes';
@@ -115,7 +116,11 @@ export default function AuthWrapper({ onDeepLink }) {
   }
 
   if (accessToken) {
-    return <AppNavigator />;
+    return (
+      <DailyCheckinGate>
+        <AppNavigator />
+      </DailyCheckinGate>
+    );
   }
 
   if (guestMode) {
