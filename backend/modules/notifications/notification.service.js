@@ -1,0 +1,305 @@
+import { getPrismaClient } from '../../config/db.js';
+import logger from '../../config/logger.js';
+import { ApiError } from '../../utils/ApiError.js';
+
+const prisma = getPrismaClient();
+
+export async function getAllDramas() {
+  try {
+    const shows = await prisma.show.findMany({
+      select: {
+        id: true,
+        title: true,
+        thumbnail_url: true,
+        is_active: true,
+      },
+      where: {
+        is_active: true,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+    return shows;
+  } catch (error) {
+    logger.error('Error fetching dramas:', error);
+    throw new ApiError(500, 'Failed to fetch dramas');
+  }
+}
+
+export async function sendNotification(notificationData, adminId) {
+  try {
+    const {
+      title,
+      body,
+      type,
+      trigger,
+      drama_id,
+      audience,
+      scheduledAt,
+      ctaLink,
+      priority,
+      showOncePerUser,
+    } = notificationData;
+
+    // Get target users based on audience
+    const userFilter = getUserFilterByAudience(audience);
+
+    // Handle scheduled notifications differently
+    if (trigger === 'scheduled' && scheduledAt) {
+      // Store in a queue or scheduled notifications table for later processing
+      // For now, we'll create notifications with a future date
+      const users = await prisma.user.findMany(userFilter);
+
+      const notifications = users.map(user => ({
+        user_id: user.id,
+        title,
+        body,
+        type,
+        trigger: 'scheduled',
+        sent_at: new Date(scheduledAt),
+        read_at: null,
+      }));
+
+      const result = await prisma.notificationLog.createMany({
+        data: notifications,
+      });
+
+      logger.info(`Scheduled ${result.count} notifications for ${new Date(scheduledAt).toISOString()}`);
+      return {
+        status: 'scheduled',
+        count: result.count,
+        scheduledAt,
+      };
+    }
+
+    // Get all target users
+    const users = await prisma.user.findMany(userFilter);
+
+    if (users.length === 0) {
+      throw new ApiError(400, 'No users match the specified audience');
+    }
+
+    // Check if user already received this notification (if showOncePerUser is true)
+    let userIds = users.map(u => u.id);
+
+    if (showOncePerUser && drama_id) {
+      const existingNotifications = await prisma.notificationLog.findMany({
+        where: {
+          user_id: { in: userIds },
+          type: 'drama',
+          // Additional check can be added for drama_id if we extend the schema
+        },
+        select: { user_id: true },
+      });
+
+      const usersWithNotif = new Set(existingNotifications.map(n => n.user_id));
+      userIds = userIds.filter(id => !usersWithNotif.has(id));
+    }
+
+    // Create notifications for all target users
+    const notificationData_bulk = userIds.map(userId => ({
+      user_id: userId,
+      title,
+      body,
+      type,
+      trigger,
+    }));
+
+    const result = await prisma.notificationLog.createMany({
+      data: notificationData_bulk,
+    });
+
+    logger.info(`Sent ${result.count} notifications of type ${type}`);
+
+    return {
+      status: 'sent',
+      count: result.count,
+      type,
+      audience,
+      title,
+    };
+  } catch (error) {
+    logger.error('Error sending notification:', error);
+    throw error instanceof ApiError ? error : new ApiError(500, 'Failed to send notification');
+  }
+}
+
+export async function getUserNotifications(userId, options = {}) {
+  try {
+    const { page = 1, limit = 20 } = options;
+    const skip = (page - 1) * limit;
+
+    const notifications = await prisma.notificationLog.findMany({
+      where: { user_id: userId },
+      orderBy: { sent_at: 'desc' },
+      skip,
+      take: limit,
+    });
+
+    const total = await prisma.notificationLog.count({ where: { user_id: userId } });
+
+    return {
+      notifications,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  } catch (error) {
+    logger.error('Error fetching user notifications:', error);
+    throw new ApiError(500, 'Failed to fetch notifications');
+  }
+}
+
+export async function markNotificationAsRead(notificationId, userId) {
+  try {
+    const notification = await prisma.notificationLog.updateMany({
+      where: {
+        id: notificationId,
+        user_id: userId,
+      },
+      data: {
+        is_read: true,
+        read_at: new Date(),
+      },
+    });
+
+    if (notification.count === 0) {
+      throw new ApiError(404, 'Notification not found');
+    }
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Error marking notification as read:', error);
+    throw error instanceof ApiError ? error : new ApiError(500, 'Failed to update notification');
+  }
+}
+
+export async function getNotificationStats() {
+  try {
+    const totalSent = await prisma.notificationLog.count();
+    const totalRead = await prisma.notificationLog.count({ where: { is_read: true } });
+    const openRate = totalSent > 0 ? ((totalRead / totalSent) * 100).toFixed(2) : 0;
+
+    const typeBreakdown = await prisma.notificationLog.groupBy({
+      by: ['type'],
+      _count: {
+        _all: true,
+      },
+    });
+
+    // Map the result to the expected format
+    const formattedTypeBreakdown = typeBreakdown.map(item => ({
+      type: item.type,
+      count: item._count._all,
+    }));
+
+    return {
+      totalSent,
+      totalRead,
+      openRate: `${openRate}%`,
+      typeBreakdown: formattedTypeBreakdown,
+    };
+  } catch (error) {
+    logger.error('Error fetching notification stats:', error);
+    throw new ApiError(500, 'Failed to fetch notification statistics');
+  }
+}
+
+export async function getNotificationConfig(adminId) {
+  try {
+    // Store config in a dedicated table or admin preferences
+    // For now, return default config
+    const config = {
+      enableDramaNotifications: true,
+      enableMembershipNotifications: true,
+      enableRewardNotifications: true,
+      defaultTrigger: 'on-login',
+      maxNotificationsPerDay: 5,
+    };
+
+    return config;
+  } catch (error) {
+    logger.error('Error fetching notification config:', error);
+    throw new ApiError(500, 'Failed to fetch notification config');
+  }
+}
+
+export async function updateNotificationConfig(adminId, configData) {
+  try {
+    // Store updated config (in a dedicated table or admin preferences)
+    // For now, just return the updated config
+    logger.info(`Updated notification config by admin ${adminId}`, configData);
+
+    return {
+      success: true,
+      config: configData,
+    };
+  } catch (error) {
+    logger.error('Error updating notification config:', error);
+    throw new ApiError(500, 'Failed to update notification config');
+  }
+}
+
+// Helper function to filter users by audience
+function getUserFilterByAudience(audience) {
+  switch (audience) {
+    case 'free':
+      return {
+        where: {
+          plan: 'FREE',
+        },
+      };
+    case 'paid':
+      return {
+        where: {
+          plan: 'MEMBER',
+        },
+      };
+    case 'weekly-plan':
+      return {
+        where: {
+          memberships: {
+            some: {
+              status: 'ACTIVE',
+              plan: {
+                duration: 'weekly',
+              },
+            },
+          },
+        },
+      };
+    case 'monthly-plan':
+      return {
+        where: {
+          memberships: {
+            some: {
+              status: 'ACTIVE',
+              plan: {
+                duration: 'monthly',
+              },
+            },
+          },
+        },
+      };
+    case 'annual-plan':
+      return {
+        where: {
+          memberships: {
+            some: {
+              status: 'ACTIVE',
+              plan: {
+                duration: 'annual',
+              },
+            },
+          },
+        },
+      };
+    case 'all':
+    default:
+      return {};
+  }
+}

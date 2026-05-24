@@ -7,6 +7,7 @@ import SplashScreen from './SplashScreen';
 import { GuestAuthProvider } from '../context/GuestAuthContext';
 import { ROUTES } from '../constants/routes';
 import { initAuth } from '../redux/slices/authSlice';
+import { fetchPendingNotifications } from '../redux/slices/notificationSlice'; // NEW
 
 export default function AuthWrapper() {
   const dispatch = useDispatch();
@@ -18,6 +19,13 @@ export default function AuthWrapper() {
   React.useEffect(() => {
     dispatch(initAuth());
   }, [dispatch]);
+
+  // NEW: Fetch pending notifications when user logs in
+  React.useEffect(() => {
+    if (accessToken && !guestMode) {
+      dispatch(fetchPendingNotifications());
+    }
+  }, [accessToken, guestMode, dispatch]);
 
   const onGuestAccess = useCallback(() => {
     setGuestMode(true);

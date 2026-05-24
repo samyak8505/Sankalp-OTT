@@ -18,6 +18,7 @@ import contentRouter from './modules/content/content.router.js';
 import feedRouter from './modules/content/feed.router.js';
 import mediaRouter from './modules/media/media.router.js';
 import userRouter from './modules/user/user.router.js'; // NEW
+import notificationRouter from './modules/notifications/notification.router.js'; // NEW
 import helmet from 'helmet';
 
 import morgan from 'morgan';
@@ -150,6 +151,7 @@ app.use('/api/content', contentRouter);
 app.use('/api/feed', feedRouter);
 app.use('/api/media', mediaRouter);
 app.use('/api/user', userRouter); // NEW
+app.use('/api/v1/notifications', notificationRouter); // NEW
 
 // ============= 404 HANDLER =============
 

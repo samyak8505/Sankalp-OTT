@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';
 
 import RootStackNavigator from './src/navigation/RootStackNavigator';
+import NotificationModal from './src/components/NotificationModal'; // NEW
 import { PlaybackSpeedProvider } from './src/context/PlaybackSpeedContext';
 import { store } from './src/redux';
 import { setStore, setAuthActions } from './src/services/api';
@@ -30,6 +31,7 @@ export default function App() {
         {/* "light" keeps status bar text/icons white on the dark app background */}
         <StatusBar style="light" />
         <RootStackNavigator />
+        <NotificationModal /> {/* NEW: Global notification modal */}
       </PlaybackSpeedProvider>
     </Provider>
   );
