@@ -5,8 +5,7 @@ import { Toggle, ConfirmDialog } from '../components/ui/Controls.jsx'
 
 const initBanners = [
   { id:1, title:'New Drama Launch', image_url:null, show_id:'D001', show_name:'Secret Marriage', link_type:'show', display_order:1, is_active:true, starts_at:'2025-04-01', ends_at:'2025-04-30' },
-  { id:2, title:'Membership 50% Off', image_url:null, show_id:null, show_name:null, link_type:'external', display_order:2, is_active:true, starts_at:'2025-04-10', ends_at:'2025-04-20' },
-  { id:3, title:'CEO Revenge Season 2', image_url:null, show_id:'D002', show_name:"CEO's Revenge", link_type:'show', display_order:3, is_active:false, starts_at:null, ends_at:null },
+  { id:2, title:'CEO Revenge Season 2', image_url:null, show_id:'D002', show_name:"CEO's Revenge", link_type:'show', display_order:3, is_active:false, starts_at:null, ends_at:null },
 ]
 
 const SHOWS_LIST = [
