@@ -9,7 +9,6 @@ import SplashScreen from './SplashScreen';
 import { GuestAuthProvider } from '../context/GuestAuthContext';
 import { ROUTES } from '../constants/routes';
 import { initAuth } from '../redux/slices/authSlice';
-import { fetchPendingNotifications } from '../redux/slices/notificationSlice'; // NEW
 
 export default function AuthWrapper({ onDeepLink }) {
   const dispatch = useDispatch();
@@ -24,12 +23,48 @@ export default function AuthWrapper({ onDeepLink }) {
     dispatch(initAuth());
   }, [dispatch]);
 
-  // NEW: Fetch pending notifications when user logs in
-  React.useEffect(() => {
-    if (accessToken && !guestMode) {
-      dispatch(fetchPendingNotifications());
-    }
-  }, [accessToken, guestMode, dispatch]);
+
+
+  // Cold-start deep link
+  useEffect(() => {
+    if (isInitializing) return;
+    if (coldStartHandled.current) return;
+    if (!onDeepLink) return;
+
+    coldStartHandled.current = true;
+
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) {
+          try {
+            onDeepLink({ url });
+          } catch (error) {
+            console.error('Error handling deep link:', error);
+          }
+        }
+      })
+      .catch((error) => {
+        console.error('Error retrieving initial URL:', error);
+      });
+  }, [isInitializing, onDeepLink]);
+
+  // Warm-start deep link
+  useEffect(() => {
+    if (!onDeepLink) return;
+
+    const handleUrl = ({ url }) => {
+      try {
+        onDeepLink({ url });
+      } catch (error) {
+        console.error('Error handling deep link:', error);
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleUrl);
+    return () => {
+      if (subscription) subscription.remove();
+    };
+  }, [onDeepLink]);
 
   const onGuestAccess = useCallback(() => {
     setGuestMode(true);
