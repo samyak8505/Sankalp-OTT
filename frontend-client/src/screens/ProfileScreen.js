@@ -21,9 +21,8 @@ import { fetchCheckinStatus } from '../components/rewards/dailyCheckinApi';
 import { logoutUser, clearLogoutError } from '../redux/slices/authSlice';
 
 const FEATURE_ICONS = [
-  { icon: 'play-circle-outline', label: '8K+ series' },
-  { icon: 'time-outline', label: 'Daily points' },
-  { icon: 'videocam-outline', label: '1080p quality' },
+  { icon: 'infinite-outline', label: 'Unlimited Access' },
+  { icon: 'lock-open-outline', label: 'Unlock Episodes' },
 ];
 
 const MENU_ITEMS = [ 
@@ -36,7 +35,7 @@ const SETTINGS_ITEMS = [
   { icon: 'help-circle-outline', label: 'Help & feedback', right: null },
 ];
 
-function MenuItem({ icon, label, right, badge, onPress, disabled }) {
+function MenuItem({ icon, label, right, badge, onPress, disabled, labelStyle }) {
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -48,7 +47,7 @@ function MenuItem({ icon, label, right, badge, onPress, disabled }) {
     >
       <View style={styles.menuLeft}>
         <Ionicons name={icon} size={20} color={disabled ? theme.darkGray : theme.white} />
-        <Text style={[styles.menuLabel, disabled && styles.menuLabelDisabled]}>{label}</Text>
+        <Text style={[styles.menuLabel, disabled && styles.menuLabelDisabled, labelStyle]}>{label}</Text>
       </View>
       <View style={styles.menuRight}>
         {badge && (
@@ -117,6 +116,9 @@ export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const accessToken = useSelector((state) => state.auth?.accessToken);
   const name = useSelector((state) => state.auth.name);
+  const coins = useSelector((state) => state.auth.coins);
+  const plan = useSelector((state) => state.auth.plan);
+  const isPaid = plan && plan !== 'FREE';
   const dispatch = useDispatch();
   const { logout: logoutState } = useSelector((state) => state.auth);
   const [earnRewardsBadge, setEarnRewardsBadge] = useState(null);
@@ -217,35 +219,46 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
         </View>
+        <View style={styles.coinsChip}>
+          <Ionicons name="logo-bitcoin" size={16} color={theme.gold} />
+          <Text style={styles.coinsText}>{coins ?? 0}</Text>
+        </View>
       </View>
 
-      <View style={styles.memberBanner}>
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountText}>16% off</Text>
-        </View>
-        <View style={styles.bannerContent}>
-          <View style={styles.bannerLeft}>
-            <Text style={styles.bannerTitle}>Join Membership</Text>
-            <Text style={styles.bannerSub}>
-              Enjoy these exclusive benefits:
-            </Text>
+      {!isPaid && (
+        <View style={styles.memberBanner}>
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>16% off</Text>
           </View>
-          <Pressable style={styles.joinSmallBtn} onPress={goToMembership}>
-            <Text style={styles.joinSmallText}>Join</Text>
-          </Pressable>
-        </View>
-        <View style={styles.featureRow}>
-          {FEATURE_ICONS.map((f) => (
-            <View key={f.label} style={styles.featureItem}>
-              <Ionicons name={f.icon} size={22} color={theme.white} />
-              <Text style={styles.featureLabel}>{f.label}</Text>
+          <View style={styles.bannerContent}>
+            <View style={styles.bannerLeft}>
+              <Text style={styles.bannerTitle}>Join Membership</Text>
+              <Text style={styles.bannerSub}>
+                Enjoy these exclusive benefits:
+              </Text>
             </View>
-          ))}
+            <Pressable style={styles.joinSmallBtn} onPress={goToMembership}>
+              <Text style={styles.joinSmallText}>Join</Text>
+            </Pressable>
+          </View>
+          <View style={styles.featureRow}>
+            {FEATURE_ICONS.map((f) => (
+              <View key={f.label} style={styles.featureItem}>
+                <Ionicons name={f.icon} size={22} color={theme.white} />
+                <Text style={styles.featureLabel}>{f.label}</Text>
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.menuCard}>
-        <MenuItem icon="star-outline" label="Membership" onPress={goToMembership} />
+        <MenuItem
+          icon="star-outline"
+          label={isPaid ? 'Member' : 'Membership'}
+          labelStyle={isPaid ? styles.memberLabelActive : null}
+          onPress={goToMembership}
+        />
         {MENU_ITEMS.map((item) => (
           <MenuItem
             key={item.label}
@@ -303,6 +316,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  coinsChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,214,0,0.12)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,214,0,0.3)',
+  },
+  coinsText: {
+    color: theme.gold,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   loginRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -311,6 +340,10 @@ const styles = StyleSheet.create({
   loginText: {
     color: theme.white,
     fontSize: 17,
+    fontWeight: '700',
+  },
+  memberLabelActive: {
+    color: '#4CAF50',
     fontWeight: '700',
   },
   guestSubtext: {

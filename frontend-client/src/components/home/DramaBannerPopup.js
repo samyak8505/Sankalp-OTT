@@ -14,7 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = Math.min(SCREEN_WIDTH - 40, 360);
+const CARD_WIDTH = Math.min(SCREEN_WIDTH - 48, 360);
+const CARD_SPACING = 12;
 
 export default function DramaBannerPopup({
   visible,
@@ -27,13 +28,14 @@ export default function DramaBannerPopup({
 
   if (!banners?.length) return null;
 
+  const SNAP_WIDTH = CARD_WIDTH + CARD_SPACING;
   const onScrollEnd = (e) => {
-    const i = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
+    const i = Math.round(e.nativeEvent.contentOffset.x / SNAP_WIDTH);
     setIndex(i);
   };
 
   const renderBanner = ({ item }) => (
-    <View style={[styles.card, { width: CARD_WIDTH }]}>
+    <View style={[styles.card, { width: CARD_WIDTH, marginHorizontal: CARD_SPACING / 2 }]}>
       <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={12}>
         <Ionicons name="close" size={22} color={theme.white} />
       </Pressable>
@@ -74,12 +76,15 @@ export default function DramaBannerPopup({
           keyExtractor={(item) => item.id}
           renderItem={renderBanner}
           horizontal
-          pagingEnabled
+          pagingEnabled={false}
+          snapToInterval={SNAP_WIDTH}
+          snapToAlignment="center"
+          decelerationRate="fast"
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={onScrollEnd}
           getItemLayout={(_, i) => ({
-            length: CARD_WIDTH,
-            offset: CARD_WIDTH * i,
+            length: SNAP_WIDTH,
+            offset: SNAP_WIDTH * i,
             index: i,
           })}
           contentContainerStyle={styles.listContent}
@@ -107,12 +112,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listContent: {
+    paddingHorizontal: CARD_SPACING / 2,
     alignItems: 'center',
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#0a1628',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 12,
   },
   closeBtn: {
     position: 'absolute',
@@ -190,7 +201,8 @@ const styles = StyleSheet.create({
   dots: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 16,
+    marginTop: 14,
+    marginBottom: 4,
   },
   dot: {
     width: 8,

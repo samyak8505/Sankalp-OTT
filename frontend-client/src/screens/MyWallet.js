@@ -187,7 +187,7 @@ const WalletScreen = () => {
                     <View style={styles.packLeft}>
                       <View style={styles.coinBadge}>
                         <Ionicons
-                          name="diamond"
+                          name="logo-bitcoin"
                           size={18}
                           color="#FFD700"
                         />
@@ -241,7 +241,7 @@ const WalletScreen = () => {
               <View style={styles.selectedPackContainer}>
                 <View style={styles.selectedPackBadge}>
                   <Ionicons
-                    name="diamond"
+                    name="logo-bitcoin"
                     size={18}
                     color="#FFD700"
                   />
