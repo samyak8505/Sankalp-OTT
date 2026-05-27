@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: theme.gray,
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: '700',
   },
   tabTextActive: {
@@ -318,14 +318,14 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.white,
-    fontSize: 17,
+    fontSize: 26,
     fontWeight: '800',
-    marginBottom: 10,
+    marginBottom: 14,
   },
   synopsis: {
     color: 'rgba(255,255,255,0.65)',
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 21,
+    lineHeight: 33,
   },
   tagsRow: {
     flexDirection: 'row',
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   episodeNumber: {
     color: theme.white,
     fontWeight: '900',
-    fontSize: 16, // Bigger text
+    fontSize: 22,
   },
   lockIcon: {
     position: 'absolute',

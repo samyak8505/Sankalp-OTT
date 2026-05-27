@@ -90,7 +90,7 @@ export default function TopUpScreen() {
       <View style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Your balance</Text>
         <View style={styles.balanceRow}>
-          <Ionicons name="diamond" size={28} color="#FFD700" />
+          <Ionicons name="logo-bitcoin" size={28} color="#FFD700" />
           <Text style={styles.balanceValue}>{String(coins ?? 0)}</Text>
           <Text style={styles.balanceUnit}>coins</Text>
         </View>
@@ -123,7 +123,7 @@ export default function TopUpScreen() {
             >
               <View style={styles.packLeft}>
                 <View style={styles.coinBadge}>
-                  <Ionicons name="diamond" size={20} color="#FFD700" />
+                  <Ionicons name="logo-bitcoin" size={20} color="#FFD700" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.packTitle}>{p.label}</Text>
@@ -156,7 +156,7 @@ export default function TopUpScreen() {
             <Text style={styles.confirmTitle}>Confirm top-up</Text>
             {selectedPack ? (
               <View style={styles.selectedPackBox}>
-                <Ionicons name="diamond" size={22} color="#FFD700" />
+                <Ionicons name="logo-bitcoin" size={22} color="#FFD700" />
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={styles.selectedPackText}>{selectedPack.label}</Text>
                   <Text style={styles.selectedPackSub}>

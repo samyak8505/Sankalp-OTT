@@ -25,25 +25,11 @@ import { patchUserProfile } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
 
 const BENEFITS = [
-  {
-    icon: 'play-circle-outline',
-    title: 'Unlimited access to 8,000+ series',
-    sub: '55+ fresh dramas every week',
-  },
-  { icon: 'download-outline', title: 'Download', sub: null },
-  { icon: 'time-outline', title: 'Daily member points', sub: null },
+
   { icon: 'star-outline', title: 'Members-only dramas', sub: null },
-  { icon: 'videocam-outline', title: '1080p quality', sub: null },
-  {
-    icon: 'gift-outline',
-    title: 'Gift dramas to friends',
-    sub: '3 times weekly',
-  },
-  {
-    icon: 'people-outline',
-    title: 'Gift a membership',
-    sub: 'Once weekly',
-  },
+  { icon: 'infinite-outline', title: 'Unlimited Access' },
+  { icon: 'lock-open-outline', title: 'Unlock Episodes' },
+
 ];
 
 function useCountdown() {
