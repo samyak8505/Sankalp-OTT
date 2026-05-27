@@ -15,6 +15,7 @@ import {
   updateBanner,
   deleteBanner,
   getDashboardMetrics,
+  getAnalyticsReport,
 } from './admin.controller.js';
 
 const router = express.Router();
@@ -59,6 +60,9 @@ router.get('/coins/transactions', getCoinTransactions);
 
 // GET dashboard metrics by period
 router.get('/dashboard/metrics', getDashboardMetrics);
+
+// GET analytics report data
+router.get('/reports/:reportType', getAnalyticsReport);
 
 // ─────────────────────────────────────────────────────────────────
 // BANNER MANAGEMENT ENDPOINTS

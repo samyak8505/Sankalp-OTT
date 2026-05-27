@@ -619,34 +619,89 @@ export async function deleteBanner(req, res, next) {
 }
 
 /**
+ * Helper function to calculate date range based on period type
+ */
+function getDateRange(periodType) {
+  const now = new Date();
+  let startDate = new Date();
+  let prevStartDate = new Date();
+  let prevEndDate = new Date();
+
+  if (periodType === 'Daily') {
+    startDate.setHours(0, 0, 0, 0);
+    prevStartDate.setDate(prevStartDate.getDate() - 1);
+    prevStartDate.setHours(0, 0, 0, 0);
+    prevEndDate.setDate(prevEndDate.getDate() - 1);
+    prevEndDate.setHours(23, 59, 59, 999);
+  } else if (periodType === 'Weekly') {
+    startDate.setDate(startDate.getDate() - startDate.getDay());
+    startDate.setHours(0, 0, 0, 0);
+    prevStartDate.setDate(prevStartDate.getDate() - prevStartDate.getDay() - 7);
+    prevStartDate.setHours(0, 0, 0, 0);
+    prevEndDate.setDate(prevEndDate.getDate() - prevEndDate.getDay() - 1);
+    prevEndDate.setHours(23, 59, 59, 999);
+  } else if (periodType === 'Monthly') {
+    startDate.setDate(1);
+    startDate.setHours(0, 0, 0, 0);
+    prevStartDate.setMonth(prevStartDate.getMonth() - 1);
+    prevStartDate.setDate(1);
+    prevStartDate.setHours(0, 0, 0, 0);
+    prevEndDate.setDate(0);
+    prevEndDate.setHours(23, 59, 59, 999);
+  } else if (periodType === 'Annual') {
+    startDate.setMonth(0);
+    startDate.setDate(1);
+    startDate.setHours(0, 0, 0, 0);
+    prevStartDate.setFullYear(prevStartDate.getFullYear() - 1);
+    prevStartDate.setMonth(0);
+    prevStartDate.setDate(1);
+    prevStartDate.setHours(0, 0, 0, 0);
+    prevEndDate.setFullYear(prevEndDate.getFullYear() - 1);
+    prevEndDate.setMonth(11);
+    prevEndDate.setDate(31);
+    prevEndDate.setHours(23, 59, 59, 999);
+  }
+
+  return { startDate, endDate: now, prevStartDate, prevEndDate };
+}
+
+/**
+ * Format number with Indian locale
+ */
+function formatNumber(num) {
+  if (!num) return '0';
+  return num.toLocaleString('en-IN');
+}
+
+/**
+ * Format currency in Indian Rupees
+ */
+function formatCurrency(num) {
+  if (!num) return '₹0';
+  const val = parseFloat(num);
+  if (val >= 1000000) return '₹' + (val / 1000000).toFixed(1) + 'M';
+  if (val >= 1000) return '₹' + (val / 1000).toFixed(1) + 'K';
+  return '₹' + val.toFixed(0);
+}
+
+/**
+ * Format coins with symbol
+ */
+function formatCoins(num) {
+  if (!num) return '₵0';
+  if (num >= 1000000) return '₵' + (num / 1000000).toFixed(1) + 'M';
+  if (num >= 1000) return '₵' + (num / 1000).toFixed(1) + 'K';
+  return '₵' + num;
+}
+
+/**
  * GET /api/v1/admin/dashboard/metrics?period=Daily|Weekly|Monthly|Annual
  * Fetch dynamic dashboard metrics from database
  */
 export async function getDashboardMetrics(req, res, next) {
   try {
     const { period = 'Monthly' } = req.query;
-    const now = new Date();
-
-    // Helper function to get date range based on period
-    function getDateRange(periodType) {
-      const start = new Date();
-      if (periodType === 'Daily') {
-        start.setHours(0, 0, 0, 0);
-      } else if (periodType === 'Weekly') {
-        start.setDate(start.getDate() - start.getDay());
-        start.setHours(0, 0, 0, 0);
-      } else if (periodType === 'Monthly') {
-        start.setDate(1);
-        start.setHours(0, 0, 0, 0);
-      } else if (periodType === 'Annual') {
-        start.setMonth(0);
-        start.setDate(1);
-        start.setHours(0, 0, 0, 0);
-      }
-      return start;
-    }
-
-    const periodStart = getDateRange(period);
+    const { startDate: periodStart } = getDateRange(period);
 
     // Fetch all metrics from database
     const totalUsers = await prisma.user.count({ where: { role: 'USER' } });
@@ -699,26 +754,6 @@ export async function getDashboardMetrics(req, res, next) {
         status: 'completed',
       },
     });
-
-    const formatNumber = (num) => {
-      if (!num) return '0';
-      return num.toLocaleString('en-IN');
-    };
-
-    const formatCurrency = (num) => {
-      if (!num) return '₹0';
-      const val = parseFloat(num);
-      if (val >= 1000000) return '₹' + (val / 1000000).toFixed(1) + 'M';
-      if (val >= 1000) return '₹' + (val / 1000).toFixed(1) + 'K';
-      return '₹' + val.toFixed(0);
-    };
-
-    const formatCoins = (num) => {
-      if (!num) return '₵0';
-      if (num >= 1000000) return '₵' + (num / 1000000).toFixed(1) + 'M';
-      if (num >= 1000) return '₵' + (num / 1000).toFixed(1) + 'K';
-      return '₵' + num;
-    };
 
     const prevRevenue = previousRevenue._sum.amount || 0;
     const currRevenue = revenue._sum.amount || 0;
@@ -778,6 +813,205 @@ export async function getDashboardMetrics(req, res, next) {
 
     return res.json(
       new ApiResponse(200, { metrics, period }, 'Dashboard metrics fetched successfully')
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * GET /api/v1/admin/reports/:reportType?period=Monthly
+ * Fetch analytics report data from database
+ */
+export async function getAnalyticsReport(req, res, next) {
+  try {
+    const { reportType } = req.params;
+    const periodType = req.query.period || 'Monthly';
+    const { startDate, endDate } = getDateRange(periodType);
+
+    let reportData = [];
+
+    if (reportType === 'subscription') {
+      const newSubs = await prisma.userMembership.count({
+        where: { created_at: { gte: startDate, lte: endDate } },
+      });
+
+      const renewals = await prisma.userMembership.count({
+        where: { 
+          start_date: { gte: startDate, lte: endDate },
+          created_at: { lt: startDate },
+        },
+      });
+
+      const totalRevenue = await prisma.paymentTransaction.aggregate({
+        where: { 
+          created_at: { gte: startDate, lte: endDate },
+          status: 'completed',
+        },
+        _sum: { amount: true },
+      });
+
+      const weeklyRev = await prisma.paymentTransaction.aggregate({
+        where: { 
+          created_at: { gte: startDate, lte: endDate },
+          status: 'completed',
+          type: 'weekly',
+        },
+        _sum: { amount: true },
+      });
+
+      const monthlyRev = await prisma.paymentTransaction.aggregate({
+        where: { 
+          created_at: { gte: startDate, lte: endDate },
+          status: 'completed',
+          type: 'monthly',
+        },
+        _sum: { amount: true },
+      });
+
+      const annualRev = await prisma.paymentTransaction.aggregate({
+        where: { 
+          created_at: { gte: startDate, lte: endDate },
+          status: 'completed',
+          type: 'annual',
+        },
+        _sum: { amount: true },
+      });
+
+      reportData = [
+        { lbl: 'New subscriptions', val: formatNumber(newSubs), color: 'var(--green)' },
+        { lbl: 'Renewals', val: formatNumber(renewals), color: 'var(--text)' },
+        { lbl: 'Total revenue', val: formatCurrency(totalRevenue._sum.amount || 0), color: 'var(--accent2)' },
+        { lbl: 'Weekly plan rev.', val: formatCurrency(weeklyRev._sum.amount || 0), color: 'var(--text2)' },
+        { lbl: 'Monthly plan rev.', val: formatCurrency(monthlyRev._sum.amount || 0), color: 'var(--text2)' },
+        { lbl: 'Annual plan rev.', val: formatCurrency(annualRev._sum.amount || 0), color: 'var(--text2)' },
+      ];
+    } else if (reportType === 'coins') {
+      const issued = await prisma.coinTransaction.aggregate({
+        where: { 
+          created_at: { gte: startDate, lte: endDate },
+          reason: 'gift',
+        },
+        _sum: { amount: true },
+      });
+
+      const purchased = await prisma.coinTransaction.aggregate({
+        where: { 
+          created_at: { gte: startDate, lte: endDate },
+          reason: 'purchase',
+        },
+        _sum: { amount: true },
+      });
+
+      const spent = await prisma.coinTransaction.aggregate({
+        where: { 
+          created_at: { gte: startDate, lte: endDate },
+          type: 'debit',
+        },
+        _sum: { amount: true },
+      });
+
+      const balance = await prisma.user.aggregate({
+        where: { coins: { gt: 0 } },
+        _sum: { coins: true },
+      });
+
+      reportData = [
+        { lbl: 'Coins issued (gift)', val: formatCoins(issued._sum.amount || 0), color: 'var(--green)' },
+        { lbl: 'Coins purchased', val: formatCoins(purchased._sum.amount || 0), color: 'var(--blue)' },
+        { lbl: 'Coins spent', val: formatCoins(spent._sum.amount || 0), color: 'var(--red)' },
+        { lbl: 'Balance in wallets', val: formatCoins(balance._sum.coins || 0), color: 'var(--amber)' },
+      ];
+    } else if (reportType === 'users') {
+      const newSignups = await prisma.user.count({
+        where: { createdAt: { gte: startDate, lte: endDate } },
+      });
+
+      const freeUsers = await prisma.user.count({
+        where: { 
+          plan: null,
+          isBlocked: false,
+        },
+      });
+
+      const paidUsers = await prisma.user.count({
+        where: { plan: { not: null } },
+      });
+
+      reportData = [
+        { lbl: 'New signups', val: formatNumber(newSignups), color: 'var(--green)' },
+        { lbl: 'Free users', val: formatNumber(freeUsers), color: 'var(--text)' },
+        { lbl: 'Paid users', val: formatNumber(paidUsers), color: 'var(--accent2)' },
+      ];
+    } else if (reportType === 'content') {
+      const unlockedEpisodes = await prisma.episodeAccess.count({
+        where: { unlocked_at: { gte: startDate, lte: endDate } },
+      });
+
+      const coinsSpent = await prisma.episodeAccess.aggregate({
+        where: { unlocked_at: { gte: startDate, lte: endDate } },
+        _sum: { coins_spent: true },
+      });
+
+      const topEpisode = await prisma.episodeAccess.groupBy({
+        by: ['episode_id'],
+        where: { unlocked_at: { gte: startDate, lte: endDate } },
+        _count: { episode_id: true },
+        orderBy: { _count: { episode_id: 'desc' } },
+        take: 1,
+      });
+
+      let topEpisodeName = 'N/A';
+      if (topEpisode.length > 0) {
+        const ep = await prisma.episode.findUnique({
+          where: { id: topEpisode[0].episode_id },
+          select: { title: true },
+        });
+        topEpisodeName = ep?.title || 'N/A';
+      }
+
+      reportData = [
+        { lbl: 'Episodes unlocked', val: formatNumber(unlockedEpisodes), color: 'var(--accent2)' },
+        { lbl: 'Coins spent', val: formatCoins(coinsSpent._sum.coins_spent || 0), color: 'var(--amber)' },
+        { lbl: 'Top unlock ep.', val: topEpisodeName, color: 'var(--text)' },
+      ];
+    } else if (reportType === 'revenue') {
+      const weeklyRevenue = await prisma.paymentTransaction.aggregate({
+        where: { 
+          status: 'completed',
+          type: 'weekly',
+        },
+        _sum: { amount: true },
+      });
+
+      const monthlyRevenue = await prisma.paymentTransaction.aggregate({
+        where: { 
+          status: 'completed',
+          type: 'monthly',
+        },
+        _sum: { amount: true },
+      });
+
+      const annualRevenue = await prisma.paymentTransaction.aggregate({
+        where: { 
+          status: 'completed',
+          type: 'annual',
+        },
+        _sum: { amount: true },
+      });
+
+      const total = (weeklyRevenue._sum.amount || 0) + (monthlyRevenue._sum.amount || 0) + (annualRevenue._sum.amount || 0);
+
+      reportData = [
+        { lbl: 'Weekly', val: formatCurrency(weeklyRevenue._sum.amount || 0), color: 'var(--green)' },
+        { lbl: 'Monthly', val: formatCurrency(monthlyRevenue._sum.amount || 0), color: 'var(--accent2)' },
+        { lbl: 'Annual', val: formatCurrency(annualRevenue._sum.amount || 0), color: 'var(--amber)' },
+        { lbl: 'Total', val: formatCurrency(total), color: 'var(--text)' },
+      ];
+    }
+
+    return res.json(
+      new ApiResponse(200, { reportData, reportType, period: periodType }, 'Report data fetched successfully')
     );
   } catch (error) {
     next(error);
