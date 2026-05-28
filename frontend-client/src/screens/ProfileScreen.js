@@ -209,8 +209,12 @@ export default function ProfileScreen({ navigation }) {
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={28} color={theme.darkGray} />
+          <View style={[styles.avatar, isPaid && styles.avatarPaid]}>
+            <Ionicons
+              name="person"
+              size={28}
+              color={isPaid ? '#4CAF50' : theme.darkGray}
+            />
           </View>
           <View>
             <View style={styles.loginRow}>
@@ -315,6 +319,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarPaid: {
+    backgroundColor: 'rgba(76, 175, 80, 0.18)',
+    borderWidth: 2,
+    borderColor: '#4CAF50',
   },
   coinsChip: {
     flexDirection: 'row',

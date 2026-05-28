@@ -34,7 +34,7 @@ function getPasswordStrength(password) {
   return { level: 4, label: 'Very strong', color: theme.green };
 }
 
-export default function SignUpScreen({ navigation }) {
+export default function SignUpScreen({ navigation, onGuestAccess }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -198,19 +198,17 @@ export default function SignUpScreen({ navigation }) {
         </Text>
       )}
 
-      {/* Guest Account Button */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.guestBtn,
-          pressed && styles.guestBtnPressed,
-        ]}
-        onPress={() => navigation.reset({
-          index: 0,
-          routes: [{ name: ROUTES.MAIN_TABS }],
-        })}
-      >
-        <Text style={styles.guestBtnText}>Continue as Guest Account</Text>
-      </Pressable>
+      {onGuestAccess ? (
+        <Pressable
+          style={({ pressed }) => [
+            styles.guestBtn,
+            pressed && styles.guestBtnPressed,
+          ]}
+          onPress={onGuestAccess}
+        >
+          <Text style={styles.guestBtnText}>Continue as Guest</Text>
+        </Pressable>
+      ) : null}
 
       {/* Sign In Link */}
       <View style={styles.bottomRow}>

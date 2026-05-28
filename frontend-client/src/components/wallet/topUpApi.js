@@ -23,6 +23,23 @@ export function walletApiErrorMessage(err, fallback = 'Request failed') {
   return fallback;
 }
 
+/** Admin plan name (primary title in UI). */
+export function packPlanTitle(pack) {
+  const name = pack?.name?.trim();
+  if (name) return name;
+  return pack?.label ?? 'Top-up pack';
+}
+
+/** Price/coins line under the plan name. */
+export function packPlanSubtitle(pack, fallback = '') {
+  const name = pack?.name?.trim();
+  if (name && pack?.label) return pack.label;
+  if (pack?.coins != null) {
+    return `${pack.coins} coins${fallback ? ` · ${fallback}` : ''}`;
+  }
+  return pack?.label ?? fallback;
+}
+
 export async function fetchTopUpOptions(accessToken) {
   const res = await userApi.get('/wallet/top-up-options', {
     headers: authHeader(accessToken),

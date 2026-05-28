@@ -17,6 +17,8 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import {
   fetchTopUpOptions,
+  packPlanSubtitle,
+  packPlanTitle,
   simulatePurchase,
 } from '../components/wallet/topUpApi';
 import { ROUTES } from '../constants/routes';
@@ -194,10 +196,10 @@ const WalletScreen = () => {
                       </View>
 
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.packTitle}>{p.label}</Text>
+                        <Text style={styles.packTitle}>{packPlanTitle(p)}</Text>
 
                         <Text style={styles.packSubtitle}>
-                          Instant top up • Secure payment
+                          {packPlanSubtitle(p, 'Instant top up')}
                         </Text>
                       </View>
                     </View>
@@ -249,11 +251,11 @@ const WalletScreen = () => {
 
                 <View>
                   <Text style={styles.selectedPackText}>
-                    {selectedPack.label}
+                    {packPlanTitle(selectedPack)}
                   </Text>
 
                   <Text style={styles.selectedPackSubtext}>
-                    Coins will be added instantly
+                    {packPlanSubtitle(selectedPack) || 'Coins will be added instantly'}
                   </Text>
                 </View>
               </View>

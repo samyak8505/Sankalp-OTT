@@ -21,7 +21,9 @@ export default function AuthNavigator({
       <Stack.Screen name={ROUTES.LOGIN}>
         {(props) => <LoginScreen {...props} onGuestAccess={onGuestAccess} />}
       </Stack.Screen>
-      <Stack.Screen name={ROUTES.SIGNUP} component={SignUpScreen} />
+      <Stack.Screen name={ROUTES.SIGNUP}>
+        {(props) => <SignUpScreen {...props} onGuestAccess={onGuestAccess} />}
+      </Stack.Screen>
       <Stack.Screen
         name={ROUTES.OTP}
         component={OtpVerificationScreen}

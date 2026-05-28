@@ -12,7 +12,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { fetchTopUpOptions, simulatePurchase } from '../components/wallet/topUpApi';
+import {
+  fetchTopUpOptions,
+  packPlanSubtitle,
+  packPlanTitle,
+  simulatePurchase,
+} from '../components/wallet/topUpApi';
 import { theme } from '../constants/theme';
 import { setCoins } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
@@ -126,9 +131,9 @@ export default function TopUpScreen() {
                   <Ionicons name="logo-bitcoin" size={20} color="#FFD700" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.packTitle}>{p.label}</Text>
+                  <Text style={styles.packTitle}>{packPlanTitle(p)}</Text>
                   <Text style={styles.packSubtitle}>
-                    {p.coins} coins · Simulated payment
+                    {packPlanSubtitle(p, 'Simulated payment')}
                   </Text>
                 </View>
               </View>
@@ -158,9 +163,9 @@ export default function TopUpScreen() {
               <View style={styles.selectedPackBox}>
                 <Ionicons name="logo-bitcoin" size={22} color="#FFD700" />
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                  <Text style={styles.selectedPackText}>{selectedPack.label}</Text>
+                  <Text style={styles.selectedPackText}>{packPlanTitle(selectedPack)}</Text>
                   <Text style={styles.selectedPackSub}>
-                    Coins will be added to your wallet
+                    {packPlanSubtitle(selectedPack) || 'Coins will be added to your wallet'}
                   </Text>
                 </View>
               </View>
