@@ -77,11 +77,19 @@ async function deleteTag(id) {
 // SHOWS (Dramas)
 // ═══════════════════════════════════════
 
-async function getAllShows({ category_id, status, search, page = 1, limit = 50 } = {}) {
+async function getAllShows({
+  category_id,
+  status,
+  search,
+  page = 1,
+  limit = 50,
+  include_inactive = false,
+} = {}) {
   const where = {};
   if (category_id) where.category_id = category_id;
   if (status === 'Published') where.is_active = true;
-  if (status === 'Draft') where.is_active = false;
+  else if (status === 'Draft') where.is_active = false;
+  else if (!include_inactive) where.is_active = true;
   if (search) {
     where.OR = [
       { title: { contains: search, mode: 'insensitive' } },

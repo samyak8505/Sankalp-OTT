@@ -126,36 +126,37 @@ export default function PopularScreen() {
     return () => { cancelled = true; };
   }, []);
 
-  // 2. Load Shows based on Category/Search
-  useEffect(() => {
-    let cancelled = false;
+  const loadShows = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('status', 'Published');
+      if (activeTab) params.set('category_id', activeTab);
+      params.set('page', '1');
+      params.set('limit', '60');
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
-    async function loadShows() {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams();
-        if (activeTab) params.set('category_id', activeTab);
-        params.set('page', '1');
-        params.set('limit', '60');
-        if (searchQuery.trim()) params.set('search', searchQuery.trim());
-
-        const res = await fetch(`${API_BASE_URL}/api/content/shows?${params.toString()}`);
-        const data = await res.json();
-        
-        if (!cancelled) {
-          setShows(Array.isArray(data?.items) ? data.items : []);
-        }
-      } catch (e) {
-        if (!cancelled) setShows([]);
-        console.error("Shows Load Error:", e);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      const res = await fetch(`${API_BASE_URL}/api/content/shows?${params.toString()}`);
+      const data = await res.json();
+      const items = Array.isArray(data?.items) ? data.items : [];
+      setShows(items.filter((s) => s.status === 'Published'));
+    } catch (e) {
+      setShows([]);
+      console.error('Shows Load Error:', e);
+    } finally {
+      setLoading(false);
     }
-
-    loadShows();
-    return () => { cancelled = true; };
   }, [activeTab, searchQuery]);
+
+  useEffect(() => {
+    loadShows();
+  }, [loadShows]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadShows();
+    }, [loadShows])
+  );
 
   // Re-open drama sheet after returning from ShowPlayer (back, gesture, title, episodes)
   useFocusEffect(

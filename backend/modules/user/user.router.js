@@ -151,7 +151,10 @@ router.get('/bookmarks', requireAuth, async (req, res, next) => {
     const userId = req.user.id;
 
     const bookmarks = await prisma.bookmark.findMany({
-      where: { user_id: userId },
+      where: {
+        user_id: userId,
+        show: { is_active: true },
+      },
       orderBy: { created_at: 'desc' },
       include: {
         show: {
@@ -256,7 +259,10 @@ router.get('/watch-history', requireAuth, async (req, res, next) => {
 
     // Fetch more than needed so we have enough after show-level dedup
     const history = await prisma.watchHistory.findMany({
-      where: { user_id: userId },
+      where: {
+        user_id: userId,
+        episode: { show: { is_active: true } },
+      },
       orderBy: { last_watched: 'desc' },
       take: 100,
       include: {

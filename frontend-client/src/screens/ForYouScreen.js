@@ -78,6 +78,12 @@ export default function ForYouScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      dispatch(fetchForYouFeed({ offset: 0, refresh: true }));
+    }, [dispatch])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
       if (!reopenAfterPlayer || !sheetSession?.item) return;
       dispatch(setForYouReopenSheetAfterPlayer(false));
       const { item, initialTab } = sheetSession;
