@@ -71,7 +71,7 @@ export const loadDramas = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const [showsRes, catsRes, tagsRes] = await Promise.all([
-        showsApi.getAll(),
+        showsApi.getAll({ include_inactive: true, limit: 500 }),
         categoriesApi.getAll(),
         tagsApi.getAll(),
       ])

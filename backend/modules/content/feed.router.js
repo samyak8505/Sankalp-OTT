@@ -129,6 +129,9 @@ router.get('/show/:showId', allowGuest, async (req, res, next) => {
       },
     });
     if (!show) return res.status(404).json({ error: 'Show not found' });
+    if (!show.is_active) {
+      return res.status(404).json({ error: 'Show not found' });
+    }
 
     const episodes = await prisma.episode.findMany({
       where: { show_id: showId, episode_num: { gte: fromEp } },

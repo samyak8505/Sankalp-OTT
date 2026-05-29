@@ -33,9 +33,12 @@ async function getShows(req, res, next) {
   try {
     const { category_id, status, search, page, limit } = req.query;
     res.json(await service.getAllShows({
-      category_id, status, search,
+      category_id,
+      status,
+      search,
       page: parseInt(page) || 1,
       limit: parseInt(limit) || 50,
+      include_inactive: req.query.include_inactive === 'true',
     }));
   } catch (e) { next(e); }
 }
